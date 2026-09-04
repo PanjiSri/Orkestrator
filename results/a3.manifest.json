@@ -1,0 +1,56 @@
+[
+  {
+    "experiment": "a3",
+    "started_at": "2026-08-24T20:27:37+0000",
+    "hostname": "node4.panjisri-313569.xdn-pg0.clemson.cloudlab.us",
+    "kernel": "6.8.0-117-generic",
+    "rsync_version": "rsync  version 3.2.7  protocol version 31",
+    "x_label": "repeats",
+    "trials": 3,
+    "points": [
+      {
+        "x_value": 1,
+        "file_size": 10485760,
+        "change_size": 4096,
+        "repeats": 1
+      },
+      {
+        "x_value": 10,
+        "file_size": 10485760,
+        "change_size": 4096,
+        "repeats": 10
+      },
+      {
+        "x_value": 100,
+        "file_size": 10485760,
+        "change_size": 4096,
+        "repeats": 100
+      },
+      {
+        "x_value": 1000,
+        "file_size": 10485760,
+        "change_size": 4096,
+        "repeats": 1000
+      },
+      {
+        "x_value": 10000,
+        "file_size": 10485760,
+        "change_size": 4096,
+        "repeats": 10000
+      }
+    ],
+    "config": {
+      "work_dir": "/var/tmp/exp",
+      "peer_work_dir": "/var/tmp/exp",
+      "src": "/var/tmp/exp/src",
+      "dst": "/var/tmp/exp/dst",
+      "capture_bin": "/users/panjisri/prototype/native/ebpf/statediff_vfs",
+      "apply_bin": "/var/tmp/exp/statediff_apply_vfs",
+      "remote_tmp": "/var/tmp/exp/batch.sd",
+      "arms": [
+        "ebpf",
+        "rsync"
+      ]
+    }
+  }
+]

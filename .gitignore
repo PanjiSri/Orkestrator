@@ -1,0 +1,20 @@
+__pycache__/
+*.pyc
+
+# Capturer stderr, written per run
+debug.log
+
+# Scratch runs, not report data
+/results/smoke*.csv
+
+# Working directories a run may leave behind if it is interrupted
+/services/todo-go/data/
+
+# Build outputs of the vendored capturer are excluded by native/ebpf/.gitignore
+# (.output/, statediff_vfs, statediff_apply_vfs, *.sd) -- those binaries are
+# tied to the BTF of the kernel that built them and must never be shared.
+
+# NOTE: results/*.csv and results/*.json are deliberately NOT ignored. They are
+# the measurements the report is built on, not build artefacts.
+
+AGENTS.md

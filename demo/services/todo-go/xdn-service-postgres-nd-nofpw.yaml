@@ -1,0 +1,26 @@
+---
+name: todo_nd_postgres
+components:
+  - database:
+      image: postgres:16-alpine
+      environments:
+        - POSTGRES_PASSWORD: root
+        - POSTGRES_DB: tasks
+  - frontend:
+      image: sriwisma/todo_golang_nd_fixed:walfix
+      port: 80
+      environments:
+        - DB_TYPE: postgres
+        - DB_HOST: database
+        - PG_EXTRA_SETTINGS: "full_page_writes=off"
+state: database:/var/lib/postgresql/data/
+consistency: linearizable
+deterministic: false
+
+requests:
+  - path_prefix: "/"
+    methods: "GET,OPTIONS,HEAD"
+    behavior: read_only
+  - path_prefix: "/"
+    methods: "PUT,POST,DELETE"
+    behavior: write_only

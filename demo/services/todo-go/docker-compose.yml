@@ -1,0 +1,12 @@
+services:
+  database:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: tasks
+    volumes:
+      - ${STATE_DIR:?STATE_DIR wajib diisi}/pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${PG_PORT:-5433}:5432"
+    stop_grace_period: 60s
+    shm_size: 256mb

@@ -1,0 +1,1959 @@
+<title>statediff_vfs.bpf.c — Panduan Baris-demi-Baris</title>
+<style>
+:root{
+  --paper:#EEF1F4; --surface:#E2E7EC; --surface-2:#D7DEE5;
+  --ink:#1B2129; --muted:#5B6472; --line:#C7D0D9;
+  --accent:#B5651D; --accent-soft:#F0DEC7; --accent-ink:#7A4212;
+  --code-ink:#26313d;
+  --radius:4px;
+  --serif: ui-serif,"Iowan Old Style","Palatino Linotype","Book Antiqua",Georgia,serif;
+  --sans: -apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono: ui-monospace,"Cascadia Code","Source Code Pro",Menlo,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#14181D; --surface:#1D232B; --surface-2:#242C36;
+    --ink:#E6E9ED; --muted:#8B94A0; --line:#323C48;
+    --accent:#E0A458; --accent-soft:#3A2E1C; --accent-ink:#F0C48C;
+    --code-ink:#D7DDE5;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#14181D; --surface:#1D232B; --surface-2:#242C36;
+  --ink:#E6E9ED; --muted:#8B94A0; --line:#323C48;
+  --accent:#E0A458; --accent-soft:#3A2E1C; --accent-ink:#F0C48C;
+  --code-ink:#D7DDE5;
+}
+:root[data-theme="light"]{
+  --paper:#EEF1F4; --surface:#E2E7EC; --surface-2:#D7DEE5;
+  --ink:#1B2129; --muted:#5B6472; --line:#C7D0D9;
+  --accent:#B5651D; --accent-soft:#F0DEC7; --accent-ink:#7A4212;
+  --code-ink:#26313d;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--paper); color:var(--ink); font-family:var(--sans);
+  font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--accent-soft); color:var(--accent-ink);}
+a{color:var(--accent-ink);}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+
+.layout{display:grid; grid-template-columns:260px minmax(0,1fr); gap:0; max-width:1180px; margin:0 auto;}
+@media (max-width:900px){ .layout{grid-template-columns:1fr;} .toc{position:static; height:auto; border-right:none; border-bottom:1px solid var(--line);} }
+
+.toc{
+  position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto;
+  padding:28px 18px 40px 24px; border-right:1px solid var(--line);
+  font-family:var(--mono); font-size:12.5px;
+}
+.toc-title{
+  font-family:var(--sans); font-weight:700; font-size:11px; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--muted); margin:0 0 14px;
+}
+.toc nav{display:flex; flex-direction:column; gap:2px;}
+.toc a{
+  display:block; color:var(--muted); text-decoration:none; padding:5px 8px;
+  border-radius:var(--radius); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.toc a:hover{background:var(--surface); color:var(--ink);}
+.toc a.active{background:var(--accent-soft); color:var(--accent-ink); font-weight:600;}
+.toc .grp{margin-top:14px; font-weight:700; color:var(--ink); padding:5px 8px 3px;}
+.toc .sub{padding-left:20px; font-size:12px;}
+
+.content{padding:48px 40px 120px; min-width:0;}
+.doc-header{max-width:70ch; margin-bottom:56px;}
+.doc-header .eyebrow{
+  font-family:var(--mono); font-size:12px; letter-spacing:.06em; color:var(--accent-ink);
+  text-transform:uppercase; margin:0 0 10px;
+}
+.doc-header h1{
+  font-family:var(--serif); font-size:2.5rem; line-height:1.15; margin:0 0 14px;
+  text-wrap:balance; font-weight:600;
+}
+.doc-header p{color:var(--muted); font-size:1.05rem; max-width:60ch; margin:0 0 8px;}
+.doc-header .path{
+  font-family:var(--mono); font-size:13px; background:var(--surface);
+  padding:2px 8px; border-radius:var(--radius); border:1px solid var(--line);
+}
+
+section{max-width:70ch; margin-bottom:64px; scroll-margin-top:24px;}
+section.wide{max-width:82ch;}
+h2{
+  font-family:var(--serif); font-size:1.7rem; font-weight:600; margin:0 0 6px;
+  text-wrap:balance; display:flex; align-items:baseline; gap:10px;
+}
+h2 .num{font-family:var(--mono); font-size:1rem; color:var(--muted); font-weight:400;}
+h3{font-family:var(--serif); font-size:1.25rem; font-weight:600; margin:36px 0 10px;}
+.lede{color:var(--muted); margin:0 0 24px; font-size:.98rem;}
+p{margin:0 0 14px;}
+ul,ol{margin:0 0 14px; padding-left:22px;}
+li{margin-bottom:6px;}
+strong{font-weight:650;}
+
+code{
+  font-family:var(--mono); font-size:.88em; background:var(--surface);
+  padding:1px 5px; border-radius:3px; color:var(--code-ink); border:1px solid var(--line);
+}
+pre code{border:none; padding:0; background:none;}
+
+.hook-badge{
+  display:inline-flex; align-items:center; gap:6px; font-family:var(--mono);
+  font-size:12.5px; background:var(--accent-soft); color:var(--accent-ink);
+  padding:3px 10px; border-radius:100px; margin-bottom:14px; font-weight:600;
+}
+.hook-badge .dot{width:6px; height:6px; border-radius:50%; background:var(--accent-ink);}
+
+.codeblock{
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+  margin:0 0 18px; overflow:hidden;
+}
+.codeblock .label{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--muted); padding:8px 14px; border-bottom:1px solid var(--line); background:var(--surface-2);
+}
+.codeblock pre{
+  margin:0; padding:14px 16px; overflow-x:auto; font-family:var(--mono);
+  font-size:13.2px; line-height:1.55; color:var(--code-ink); tab-size:4;
+}
+
+.explain{
+  border-left:3px solid var(--line); padding-left:16px; margin:0 0 18px;
+}
+.explain .label{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--muted); margin-bottom:8px; display:block;
+}
+
+.example{
+  background:var(--accent-soft); border-radius:var(--radius); padding:14px 18px;
+  margin:0 0 18px; color:var(--accent-ink);
+}
+.example .label{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
+  margin-bottom:8px; display:block; opacity:.85;
+}
+.example pre{
+  margin:0; font-family:var(--mono); font-size:13px; line-height:1.6;
+  color:var(--accent-ink); white-space:pre-wrap; font-variant-numeric:tabular-nums;
+}
+.example p{color:var(--accent-ink); margin:0;}
+
+table{border-collapse:collapse; width:100%; margin:0 0 20px; font-size:.92rem;}
+th,td{text-align:left; padding:7px 12px; border-bottom:1px solid var(--line); font-variant-numeric:tabular-nums;}
+th{font-family:var(--mono); font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); font-weight:600;}
+td code{font-size:.85em;}
+
+.map-table td:first-child, .map-table th:first-child{font-family:var(--mono); white-space:nowrap;}
+
+.callout{
+  border:1px solid var(--line); border-left:3px solid var(--accent); background:var(--surface);
+  border-radius:var(--radius); padding:14px 18px; margin:0 0 18px; font-size:.94rem;
+}
+.callout .label{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--accent-ink); margin-bottom:6px; display:block; font-weight:700;
+}
+
+.flow{
+  font-family:var(--mono); font-size:13px; background:var(--surface); border:1px solid var(--line);
+  border-radius:var(--radius); padding:18px 20px; line-height:1.9; overflow-x:auto; white-space:pre;
+}
+
+hr.sep{border:none; border-top:1px dashed var(--line); margin:48px 0;}
+
+.backtotop{
+  font-family:var(--mono); font-size:12px; color:var(--muted); text-decoration:none;
+}
+
+@media (prefers-reduced-motion: no-preference){
+  .toc a{transition:background .12s ease, color .12s ease;}
+}
+</style>
+
+<div class="layout">
+  <aside class="toc" id="toc">
+    <p class="toc-title">Navigasi</p>
+    <nav>
+      <a href="#s0">0 · Gambaran Besar</a>
+      <div class="grp">1 · Dasar eBPF</div>
+      <a class="sub" href="#s1-1">1.1 BPF map</a>
+      <a class="sub" href="#s1-2">1.2 fentry / fexit</a>
+      <a class="sub" href="#s1-3">1.3 kprobe / kretprobe</a>
+      <a class="sub" href="#s1-4">1.4 Ring buffer</a>
+      <div class="grp">2 · Struct Data</div>
+      <a class="sub" href="#s2-1">2.1 inode_key</a>
+      <a class="sub" href="#s2-2">2.2 pending</a>
+      <a class="sub" href="#s2-3">2.3 event</a>
+      <a class="sub" href="#s2-4">2.4 stats</a>
+      <a href="#s3">3 · Semua Map</a>
+      <div class="grp">4 · Helper Dasar</div>
+      <a class="sub" href="#s4-1">4.1 inode → key</a>
+      <a class="sub" href="#s4-2">4.2 nama & tipe</a>
+      <div class="grp">5 · Helper Alur</div>
+      <a class="sub" href="#s5-1">5.1 current_key, filtered_out</a>
+      <a class="sub" href="#s5-2">5.2 scratch & init</a>
+      <a class="sub" href="#s5-3">5.3 fill_common</a>
+      <a class="sub" href="#s5-4">5.4 emit_pending_event</a>
+      <a class="sub" href="#s5-5">5.5 save_child_op</a>
+      <div class="grp">6 · Hook Pola Dasar</div>
+      <a class="sub" href="#s6-1">6.1 MKDIR (trace lengkap)</a>
+      <a class="sub" href="#s6-2">6.2 UNLINK / RMDIR</a>
+      <a href="#s7">7 · CREATE</a>
+      <div class="grp">8 · Hook WRITE</div>
+      <a class="sub" href="#s8-1">8.1 vfs_write</a>
+      <a class="sub" href="#s8-2">8.2 vfs_writev</a>
+      <a href="#s9">9 · TRUNCATE</a>
+      <a href="#s10">10 · FALLOCATE</a>
+      <a href="#s11">11 · RENAME</a>
+      <a href="#s12">12 · MMAP + WRITEBACK</a>
+      <a href="#s13">13 · Native AIO / DIO</a>
+      <a href="#s14">14 · Statistik</a>
+      <a href="#s15">15 · Skenario End-to-End</a>
+      <a href="#s16">16 · Peta Penutup</a>
+    </nav>
+  </aside>
+
+  <main class="content">
+    <header class="doc-header">
+      <p class="eyebrow">Panduan belajar &middot; eBPF StDiffCapturer</p>
+      <h1>statediff_vfs.bpf.c</h1>
+      <p>Penjelasan lengkap, baris demi baris, untuk program BPF sisi kernel yang menangkap mutasi filesystem lewat VFS hook.</p>
+      <p><span class="path">experiments/eBPF_StDiffCaptrurer/statediff_vfs.bpf.c</span> &middot; 1670 baris</p>
+    </header>
+
+    <section id="s0">
+      <h2><span class="num">0</span>Gambaran Besar</h2>
+      <p>File ini berisi satu program BPF yang dimuat ke dalam kernel Linux. Isinya adalah kumpulan <strong>hook</strong>: potongan kode yang dijalankan kernel setiap kali fungsi VFS tertentu dipanggil (mis. <code>vfs_mkdir</code>, <code>vfs_write</code>). Setiap operasi filesystem yang relevan (buat file, tulis, hapus, rename, dst) punya sepasang hook: satu di <strong>titik masuk</strong> fungsi kernel, satu di <strong>titik keluar</strong>-nya.</p>
+      <p>Alur besar setiap operasi selalu mengikuti pola yang sama:</p>
+      <div class="flow">1. syscall dipanggil user (mkdir, write, rename, ...)
+2. kernel menjalankan fungsi VFS terkait (vfs_mkdir, vfs_write, ...)
+     |
+     |-- hook MASUK: cek apakah objek ini sedang diawasi,
+     |               simpan data mentah ke map "pending_*"
+     |
+   fungsi VFS benar-benar berjalan (buat direktori, tulis byte, dst)
+     |
+     |-- hook KELUAR: ambil data dari "pending_*", cek hasilnya sukses,
+     |                bentuk event final, kirim ke ring buffer "rb"
+     v
+3. program userspace (statediff_vfs.c, file berikutnya) membaca ring buffer</div>
+      <p>Dokumen ini menelusuri file dari yang paling dasar (map, struct) ke yang paling kompleks (penulisan vectored, native AIO), supaya setiap hook bisa dipahami sebagai variasi dari pola yang sama.</p>
+    </section>
+
+    <hr class="sep">
+
+    <section id="s1-1">
+      <h2><span class="num">1.1</span>Apa itu BPF map</h2>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 81&ndash;86</div>
+        <pre><code>struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(max_entries, 65536);
+	__type(key, struct statediff_vfs_inode_key);
+	__type(value, unsigned char);
+} tracked_dirs SEC(".maps");</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p>Ini bukan struct C biasa untuk membuat variabel lokal. Ini adalah definisi tabel yang dibaca oleh loader BPF (<code>libbpf</code>) untuk membuat tabel key-value di dalam kernel, sebelum program BPF dimuat.</p>
+        <ul>
+          <li><code>__uint(type, BPF_MAP_TYPE_HASH)</code> — jenis tabelnya hash map: satu key unik memetakan ke satu value.</li>
+          <li><code>__uint(max_entries, 65536)</code> — kapasitas maksimum tabel.</li>
+          <li><code>__type(key, ...)</code> / <code>__type(value, ...)</code> — tipe data key dan value.</li>
+          <li><code>SEC(".maps")</code> — menandai struct ini ke compiler BPF supaya diletakkan di section ELF <code>.maps</code>. Ini yang membuat loader tahu "ini definisi map", bukan variabel biasa.</li>
+        </ul>
+        <p>Map bisa dibaca/ditulis dari dua sisi: (1) dari dalam program BPF lewat <code>bpf_map_lookup_elem()</code> / <code>bpf_map_update_elem()</code>, dan (2) dari program userspace lewat libbpf.</p>
+      </div>
+      <div class="example">
+        <span class="label">Contoh isi tabel <code>tracked_dirs</code></span>
+        <pre>key = {dev: 64768, ino: 100}   ->  value = 1   // "/tracked/dir"</pre>
+      </div>
+      <p>Value-nya (<code>unsigned char</code>) selalu diisi <code>1</code> dan tidak pernah dibaca isinya — yang dicek hanya <strong>apakah key-nya ada di tabel</strong>. Semua map "daftar keanggotaan" di file ini (<code>tracked_dirs</code>, <code>mmap_files</code>, <code>dio_inflight</code>) memakai pola ini.</p>
+    </section>
+
+    <section id="s1-2">
+      <h2><span class="num">1.2</span>Hook fentry / fexit</h2>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 597&ndash;606</div>
+        <pre><code>SEC("fentry/vfs_mkdir")
+int BPF_PROG(handle_vfs_mkdir, struct mnt_idmap *idmap, struct inode *dir,
+	     struct dentry *dentry, umode_t mode)
+{
+	return save_child_op(&pending_mkdir, SD_VFS_OP_MKDIR, dir, dentry, mode);
+}
+
+SEC("fexit/vfs_mkdir")
+int BPF_PROG(handle_vfs_mkdir_ret, struct mnt_idmap *idmap, struct inode *dir,
+	     struct dentry *dentry, umode_t mode, int ret)
+{</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p><code>SEC("fentry/vfs_mkdir")</code> menempelkan fungsi <code>handle_vfs_mkdir</code> ke <strong>titik masuk</strong> fungsi kernel <code>vfs_mkdir()</code>. Kernel menjalankan fungsi ini setiap kali <code>vfs_mkdir()</code> dipanggil, <strong>sebelum</strong> isi <code>vfs_mkdir()</code> sendiri dieksekusi. Parameter yang diterima (<code>idmap, dir, dentry, mode</code>) persis sama dengan parameter asli <code>vfs_mkdir()</code> di kernel — BPF meneruskannya apa adanya.</p>
+        <p><code>SEC("fexit/vfs_mkdir")</code> menempel di <strong>titik keluar</strong> — dijalankan tepat setelah <code>vfs_mkdir()</code> selesai (return), sebelum kontrol kembali ke pemanggilnya. Parameternya sama seperti versi <code>fentry</code>, <strong>ditambah satu parameter di akhir: <code>ret</code></strong> — nilai balik fungsi aslinya (0 = sukses, negatif = kode error).</p>
+        <p><code>BPF_PROG(...)</code> adalah macro dari <code>libbpf</code> yang membungkus detail teknis pemanggilan trampoline BTF, supaya fungsi bisa ditulis dengan tanda tangan (signature) normal seperti fungsi C biasa.</p>
+      </div>
+      <div class="callout">
+        <span class="label">Kenapa harus berpasangan?</span>
+        <p>Sebagian data (misalnya "apakah operasi berhasil") hanya tersedia di titik keluar. Sebagian lain (misalnya "siapa direktori induknya sebelum operasi berjalan") lebih murah diambil di titik masuk. Karena itu data dari <code>fentry</code> perlu "dititipkan" agar bisa dipakai lagi oleh <code>fexit</code> — inilah fungsi map <code>pending_*</code> yang dibahas di bagian 2.2 dan 5.</p>
+      </div>
+    </section>
+
+    <section id="s1-3">
+      <h2><span class="num">1.3</span>Hook kprobe / kretprobe</h2>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 766&ndash;769, 892&ndash;893</div>
+        <pre><code>SEC("kprobe/vfs_writev")
+int BPF_KPROBE(handle_vfs_writev, struct file *file, const struct iovec *vec,
+	       unsigned long vlen, loff_t *pos)
+
+SEC("kretprobe/vfs_writev")
+int BPF_KRETPROBE(handle_vfs_writev_ret, ssize_t ret)</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p><code>fentry</code>/<code>fexit</code> butuh informasi tipe (BTF) yang lengkap dan hanya bisa menempel ke fungsi yang benar-benar berdiri sendiri sebagai simbol kernel. Untuk <code>vfs_writev</code>, komentar sumber di baris 755&ndash;765 menjelaskan bahwa jalur pemanggilan sebenarnya (<code>do_writev</code> &rarr; <code>vfs_writev</code> &rarr; <code>do_iter_write</code>) sebagian besar sudah di-inline compiler, dan <code>vfs_writev</code> adalah satu-satunya simbol dari jalur itu yang masih bisa ditempeli hook secara andal — di sini lewat mekanisme yang lebih tua dan lebih generik, yaitu <strong>kprobe</strong>/<strong>kretprobe</strong> (menempel ke alamat instruksi mana pun yang punya simbol di <code>kallsyms</code>, tidak butuh BTF trampoline).</p>
+        <p>Konsekuensi pentingnya ada pada <code>BPF_KRETPROBE</code>: fungsi ini <strong>hanya</strong> menerima <code>ret</code>. Tidak ada <code>file</code>, <code>vec</code>, atau <code>pos</code> lagi — di titik kembali fungsi, register CPU sudah berisi nilai balik, bukan argumen asli. Karena itu <code>handle_vfs_writev</code> (bagian masuk) <strong>wajib</strong> menyimpan pointer <code>vec</code> dan <code>pos</code> ke map <code>pending_writev</code> terlebih dulu, supaya <code>handle_vfs_writev_ret</code> bisa membacanya kembali secara manual (lihat bagian 8.2).</p>
+      </div>
+    </section>
+
+    <section id="s1-4">
+      <h2><span class="num">1.4</span>Ring buffer &amp; BPF_CORE_READ</h2>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 76&ndash;79</div>
+        <pre><code>struct {
+	__uint(type, BPF_MAP_TYPE_RINGBUF);
+	__uint(max_entries, 64 * 1024 * 1024);
+} rb SEC(".maps");</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p>Map <code>rb</code> adalah map bertipe khusus, <code>BPF_MAP_TYPE_RINGBUF</code>: sebuah buffer melingkar 64&nbsp;MiB. Ini adalah <strong>satu-satunya jalur keluar data</strong> dari program BPF ke userspace di file ini. Program BPF menulis lewat <code>bpf_ringbuf_reserve()</code> + <code>bpf_ringbuf_submit()</code> (memesan slot berukuran tetap lalu mengisinya) atau <code>bpf_ringbuf_output()</code> (menyalin buffer langsung, dipakai untuk data berukuran variabel seperti isi tulisan file). Userspace membacanya lewat polling (dibahas di file <code>statediff_vfs.c</code>).</p>
+        <p>Satu detail teknis lain yang muncul berulang di seluruh file adalah <code>BPF_CORE_READ(struct_ptr, field)</code>. Ini pengganti wajib untuk akses langsung seperti <code>struct_ptr->field</code>. Program BPF tidak boleh membaca memory kernel secara langsung karena verifier BPF (bagian kernel yang memeriksa keamanan program BPF sebelum dijalankan) harus bisa memastikan setiap akses memory valid. <code>BPF_CORE_READ</code> juga menangani <strong>CO-RE</strong> (<em>Compile Once &ndash; Run Everywhere</em>): posisi field yang sebenarnya di dalam struct kernel bisa berbeda antar versi kernel, dan <code>BPF_CORE_READ</code> menyesuaikannya otomatis saat program dimuat, sehingga satu file <code>.o</code> hasil kompilasi bisa jalan di kernel versi lain tanpa dikompilasi ulang.</p>
+      </div>
+    </section>
+
+    <hr class="sep">
+
+    <section id="s2-1">
+      <h2><span class="num">2.1</span>struct statediff_vfs_inode_key</h2>
+      <div class="codeblock">
+        <div class="label">include/statediff_vfs.h &middot; baris 59&ndash;62</div>
+        <pre><code>struct statediff_vfs_inode_key {
+	unsigned long long dev;
+	unsigned long long ino;
+};</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <ul>
+          <li><code>dev</code> — nomor device dari filesystem tempat file berada.</li>
+          <li><code>ino</code> — nomor inode file itu di filesystem tersebut.</li>
+        </ul>
+        <p>Kombinasi <code>(dev, ino)</code> unik untuk satu file/direktori selama filesystem-nya ter-mount. Struct ini menggantikan path sebagai identitas objek — path string mahal untuk direkonstruksi dari dalam kernel, sementara <code>dev</code>/<code>ino</code> sudah tersedia langsung di struct <code>inode</code>.</p>
+      </div>
+    </section>
+
+    <section id="s2-2">
+      <h2><span class="num">2.2</span>struct statediff_vfs_pending</h2>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 57&ndash;74</div>
+        <pre><code>struct statediff_vfs_pending {
+	unsigned int op;
+	unsigned int mode;
+	unsigned int flags;
+	unsigned long long offset;
+	unsigned long long size;
+	const char *buf;
+	unsigned int is_dir;
+	struct statediff_vfs_inode_key parent;
+	struct statediff_vfs_inode_key object;
+	struct statediff_vfs_inode_key new_parent;
+	struct statediff_vfs_inode_key new_object;
+	char name[STATEDIFF_VFS_NAME_LEN];
+	char new_name[STATEDIFF_VFS_NAME_LEN];
+	unsigned long long iov_ptr;
+	unsigned long long pos_ptr;
+	unsigned int iov_segs;
+};</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan field</span>
+        <ul>
+          <li><code>op</code> — jenis operasi (nilai dari <code>enum statediff_vfs_op</code>, mis. <code>SD_VFS_OP_MKDIR</code>).</li>
+          <li><code>mode</code> — arti berbeda-beda per operasi: mode file (mkdir/create), atau mode <code>fallocate</code>.</li>
+          <li><code>flags</code> — flag tambahan, mis. flag rename atau flag zero-range.</li>
+          <li><code>offset</code>, <code>size</code> — posisi &amp; ukuran byte yang terlibat (write/truncate/fallocate).</li>
+          <li><code>buf</code> — pointer ke buffer di memory <strong>user</strong> (bukan kernel) yang berisi data yang sedang ditulis; hanya dipakai jalur <code>vfs_write</code>.</li>
+          <li><code>is_dir</code> — 1 jika objeknya direktori.</li>
+          <li><code>parent</code>, <code>object</code> — identitas direktori induk dan objek itu sendiri.</li>
+          <li><code>new_parent</code>, <code>new_object</code> — dipakai khusus <code>rename</code> (induk &amp; objek di lokasi baru).</li>
+          <li><code>name</code>, <code>new_name</code> — nama file/direktori (dan nama baru untuk rename), maksimum <code>STATEDIFF_VFS_NAME_LEN</code> (256) byte.</li>
+          <li><code>iov_ptr</code>, <code>pos_ptr</code>, <code>iov_segs</code> — khusus <code>vfs_writev</code>: pointer mentah ke array iovec milik user, pointer ke posisi file, dan jumlah segmen. Disimpan di sini karena <code>kretprobe</code> tidak mengembalikan argumen asli (lihat bagian 1.3).</li>
+        </ul>
+        <p>Struct ini adalah <strong>representasi sementara</strong> yang diisi bertahap oleh hook masuk (<code>fentry</code>/<code>kprobe</code>), disimpan ke salah satu map <code>pending_*</code>, lalu dibaca kembali dan diselesaikan oleh hook keluar (<code>fexit</code>/<code>kretprobe</code>).</p>
+      </div>
+    </section>
+
+    <section id="s2-3">
+      <h2><span class="num">2.3</span>struct statediff_vfs_event</h2>
+      <div class="codeblock">
+        <div class="label">include/statediff_vfs.h &middot; baris 64&ndash;94</div>
+        <pre><code>#define STATEDIFF_VFS_EVENT_FIELDS \
+	unsigned int op; \
+	unsigned int pid; \
+	unsigned int tid; \
+	unsigned int uid; \
+	unsigned int gid; \
+	unsigned long long cgroup_id; \
+	long long ret; \
+	unsigned int mode; \
+	unsigned int flags; \
+	unsigned long long offset; \
+	unsigned long long size; \
+	unsigned long long cookie; \
+	unsigned int is_dir; \
+	unsigned int data_len; \
+	struct statediff_vfs_inode_key parent; \
+	struct statediff_vfs_inode_key object; \
+	struct statediff_vfs_inode_key new_parent; \
+	struct statediff_vfs_inode_key new_object; \
+	char name[STATEDIFF_VFS_NAME_LEN]; \
+	char new_name[STATEDIFF_VFS_NAME_LEN];
+
+struct statediff_vfs_event {
+	STATEDIFF_VFS_EVENT_FIELDS
+	char data[];
+};
+
+struct statediff_vfs_event_storage {
+	STATEDIFF_VFS_EVENT_FIELDS
+	char data[STATEDIFF_VFS_MAX_WRITE_DATA_LEN];
+};</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p><code>STATEDIFF_VFS_EVENT_FIELDS</code> adalah macro C preprocessor: daftar field yang disisipkan mentah-mentah ke dua struct berbeda, supaya tidak perlu menulis field yang sama dua kali. Isinya adalah semua field <code>statediff_vfs_pending</code> ditambah info yang baru diketahui saat operasi <strong>selesai</strong>: <code>pid</code>, <code>tid</code>, <code>uid</code>, <code>gid</code>, <code>cgroup_id</code>, <code>ret</code> (hasil operasi), <code>cookie</code> (khusus DIO), dan <code>data_len</code> (panjang byte data yang menyertai event, jika ada).</p>
+        <p>Dua struct dibangun dari macro yang sama tapi ukurannya berbeda:</p>
+        <ul>
+          <li><code>statediff_vfs_event</code> — <code>data[]</code> adalah <em>flexible array member</em>, ukurannya nol sampai dipesan secara eksplisit. Dipakai saat event tidak butuh payload byte (mkdir, unlink, dst) lewat <code>bpf_ringbuf_reserve()</code>.</li>
+          <li><code>statediff_vfs_event_storage</code> — <code>data[STATEDIFF_VFS_MAX_WRITE_DATA_LEN]</code> adalah array tetap sebesar 4&nbsp;MiB. Dipakai sebagai <strong>buffer staging</strong> sebelum data disalin ke ring buffer lewat <code>bpf_ringbuf_output()</code>.</li>
+        </ul>
+        <p><code>STATEDIFF_VFS_EVENT_HEADER_LEN</code> (baris 96&ndash;97 di header) dihitung dari <code>offsetof(struct statediff_vfs_event, data)</code> — jarak byte dari awal struct sampai field <code>data</code>. Ini dipakai untuk memberi tahu <code>bpf_ringbuf_reserve</code>/<code>bpf_ringbuf_output</code> berapa byte header yang perlu disalin sebelum payload.</p>
+      </div>
+    </section>
+
+    <section id="s2-4">
+      <h2><span class="num">2.4</span>struct statediff_vfs_stats</h2>
+      <div class="codeblock">
+        <div class="label">include/statediff_vfs.h &middot; baris 99&ndash;124 (dipendekkan)</div>
+        <pre><code>struct statediff_vfs_stats {
+	unsigned long long create_enter;
+	unsigned long long mkdir_enter;
+	unsigned long long write_enter;
+	/* ... enter counter lain per operasi ... */
+	unsigned long long events_submitted;
+	unsigned long long ringbuf_drops;
+	unsigned long long write_bytes_dropped;
+	unsigned long long write_chunks_dropped;
+	unsigned long long probe_read_failures;
+	/* ... counter loss lain ... */
+	unsigned long long last_untracked_dev;
+	unsigned long long last_untracked_ino;
+	unsigned int last_untracked_op;
+};</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p>Satu struct counter tunggal, disimpan di map <code>stats</code> (dibahas bagian 3). Dua kelompok field: (1) <em>enter counter</em> — berapa kali tiap jenis operasi masuk ke hook, dipakai untuk diagnostik umum; (2) <em>loss counter</em> (<code>ringbuf_drops</code>, <code>write_bytes_dropped</code>, dst) — penanda kegagalan capture. Program userspace <strong>menolak menulis batch</strong> kalau ada loss counter yang bukan nol (fail-closed), karena capture sebagian dianggap sama buruknya dengan capture gagal total.</p>
+      </div>
+    </section>
+
+    <hr class="sep">
+
+    <section id="s3" class="wide">
+      <h2><span class="num">3</span>Semua Map di File Ini</h2>
+      <p class="lede">Delapan map bertipe hash/array, satu ring buffer. Semua definisinya mengikuti pola Bagian 1.1.</p>
+      <table class="map-table">
+        <tr><th>Nama</th><th>Tipe</th><th>Key</th><th>Value</th><th>Fungsi</th></tr>
+        <tr><td>rb</td><td>RINGBUF</td><td>&mdash;</td><td>&mdash;</td><td>Jalur keluar semua event ke userspace</td></tr>
+        <tr><td>tracked_dirs</td><td>HASH</td><td>inode_key</td><td>u8</td><td>Daftar direktori yang diawasi (dibahas 1.1)</td></tr>
+        <tr><td>stats</td><td>ARRAY, 1 slot</td><td>u32</td><td>statediff_vfs_stats</td><td>Counter tunggal, lihat Bagian 14</td></tr>
+        <tr><td>pending_mkdir</td><td>HASH</td><td>pid_tgid</td><td>statediff_vfs_pending</td><td>Titip data mkdir antara entry &amp; exit</td></tr>
+        <tr><td>pending_write</td><td>HASH</td><td>pid_tgid</td><td>statediff_vfs_pending</td><td>Titip data vfs_write</td></tr>
+        <tr><td>pending_truncate</td><td>HASH</td><td>pid_tgid</td><td>statediff_vfs_pending</td><td>Titip data do_truncate</td></tr>
+        <tr><td>pending_fallocate</td><td>HASH</td><td>pid_tgid</td><td>statediff_vfs_pending</td><td>Titip data vfs_fallocate</td></tr>
+        <tr><td>pending_unlink</td><td>HASH</td><td>pid_tgid</td><td>statediff_vfs_pending</td><td>Titip data vfs_unlink</td></tr>
+        <tr><td>pending_rmdir</td><td>HASH</td><td>pid_tgid</td><td>statediff_vfs_pending</td><td>Titip data vfs_rmdir</td></tr>
+        <tr><td>pending_rename</td><td>HASH</td><td>pid_tgid</td><td>statediff_vfs_pending</td><td>Titip data vfs_rename</td></tr>
+        <tr><td>pending_writev</td><td>HASH</td><td>pid_tgid</td><td>statediff_vfs_pending</td><td>Titip pointer iovec vfs_writev</td></tr>
+        <tr><td>scratch</td><td>PERCPU_ARRAY, 1 slot</td><td>u32</td><td>statediff_vfs_pending</td><td>Slot kerja sementara per-CPU, lihat 5.2</td></tr>
+        <tr><td>event_scratch</td><td>ARRAY, N=jumlah CPU</td><td>u32 (id CPU)</td><td>statediff_vfs_event_storage</td><td>Buffer staging 4&nbsp;MiB untuk payload WRITE, lihat 5.2</td></tr>
+        <tr><td>mmap_files</td><td>HASH</td><td>inode_key</td><td>u8</td><td>File dengan writable mmap aktif, lihat Bagian 12</td></tr>
+        <tr><td>dio_inflight</td><td>HASH</td><td>user_iocb ptr</td><td>u8</td><td>Cookie AIO yang sedang berjalan, lihat Bagian 13</td></tr>
+      </table>
+      <div class="callout">
+        <span class="label">Kenapa key-nya pid_tgid untuk semua map pending_*?</span>
+        <p>Hook masuk dan hook keluar dari satu operasi yang sama berjalan berurutan di <strong>thread kernel yang sama</strong> — tidak ada operasi lain dari thread itu yang menyela di antaranya. <code>pid_tgid</code> (dijelaskan di Bagian 5.1) karena itu cukup sebagai kunci untuk mencocokkan draft data dari entry ke exit hook miliknya sendiri.</p>
+      </div>
+      <div class="callout">
+        <span class="label">Kenapa scratch beda dari event_scratch?</span>
+        <p><code>scratch</code> pakai <code>PERCPU_ARRAY</code> karena tipe map ini punya batas ukuran per elemen 32&nbsp;KiB — cukup untuk <code>statediff_vfs_pending</code> (kecil). <code>event_scratch</code> perlu menampung <code>statediff_vfs_event_storage</code> yang berukuran ~4&nbsp;MiB, jauh melebihi batas itu, sehingga harus memakai <code>ARRAY</code> biasa yang di-index manual dengan ID CPU (<code>bpf_get_smp_processor_id()</code>) untuk meniru perilaku "satu slot per CPU" tanpa kena batas ukuran.</p>
+      </div>
+    </section>
+
+    <hr class="sep">
+
+    <section id="s4-1">
+      <h2><span class="num">4.1</span>Helper: dari inode/dentry ke identitas</h2>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 346&ndash;385</div>
+        <pre><code>static __always_inline int inode_to_key(struct inode *inode,
+					struct statediff_vfs_inode_key *key)
+{
+	struct super_block *sb;
+
+	if (!inode)
+		return 0;
+
+	sb = BPF_CORE_READ(inode, i_sb);
+	if (!sb)
+		return 0;
+
+	key->ino = BPF_CORE_READ(inode, i_ino);
+	key->dev = BPF_CORE_READ(sb, s_dev);
+	return key->ino != 0;
+}
+
+static __always_inline int dentry_to_key(struct dentry *dentry,
+					 struct statediff_vfs_inode_key *key)
+{
+	struct inode *inode;
+
+	if (!dentry)
+		return 0;
+	inode = BPF_CORE_READ(dentry, d_inode);
+	return inode_to_key(inode, key);
+}
+
+static __always_inline int dentry_parent_key(struct dentry *dentry,
+					     struct statediff_vfs_inode_key *key)
+{
+	struct dentry *parent;
+
+	if (!dentry)
+		return 0;
+	parent = BPF_CORE_READ(dentry, d_parent);
+	if (!parent)
+		return 0;
+	return dentry_to_key(parent, key);
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p><code>inode_to_key</code> — membaca <code>inode-&gt;i_sb</code> (superblock, mewakili filesystem/mount tempat inode berada), lalu mengisi <code>key-&gt;ino</code> dari <code>inode-&gt;i_ino</code> dan <code>key-&gt;dev</code> dari <code>sb-&gt;s_dev</code>. Mengembalikan 1 kalau <code>ino</code> berhasil dibaca dan bukan nol.</p>
+        <p><code>dentry_to_key</code> — <code>struct dentry</code> merepresentasikan satu entri nama di dalam sebuah direktori: pasangan nama string dan inode yang ditunjuknya. Fungsi ini membaca <code>dentry-&gt;d_inode</code> (inode yang ditunjuk entri ini), lalu memanggil <code>inode_to_key</code> di atasnya.</p>
+        <p><code>dentry_parent_key</code> — membaca <code>dentry-&gt;d_parent</code> (dentry dari direktori yang memuat <code>dentry</code> ini), lalu memanggil <code>dentry_to_key</code> pada parent tersebut. Dipakai setiap kali hook perlu tahu identitas direktori <strong>induk</strong> dari objek yang sedang dioperasikan.</p>
+      </div>
+      <div class="example">
+        <span class="label">Contoh konkret</span>
+        <pre>Struktur: /tracked/dir/photos  (photos adalah subdirektori, ino=205)
+          /tracked/dir           (ino=100, dev=64768)
+
+dentry_to_key(dentry photos)      -> key = {dev:64768, ino:205}
+dentry_parent_key(dentry photos)  -> key = {dev:64768, ino:100}</pre>
+      </div>
+
+      <h3>dir_is_tracked</h3>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 407&ndash;415</div>
+        <pre><code>static __always_inline int dir_is_tracked(const struct statediff_vfs_inode_key *key)
+{
+	void *tracked;
+
+	tracked = bpf_map_lookup_elem(&tracked_dirs, key);
+	if (tracked)
+		return 1;
+	return 0;
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p><code>bpf_map_lookup_elem</code> adalah fungsi helper bawaan BPF yang mencari <code>key</code> di map <code>tracked_dirs</code> (Bagian 1.1) dan mengembalikan pointer ke value-nya kalau ketemu, atau <code>NULL</code> kalau tidak. Hasil pencarian diubah menjadi boolean 1/0. Fungsi ini adalah <strong>gerbang utama scoping</strong>: hampir setiap hook memanggilnya untuk memutuskan apakah operasi yang sedang terjadi perlu direkam sama sekali.</p>
+      </div>
+    </section>
+
+    <section id="s4-2">
+      <h2><span class="num">4.2</span>Helper: nama &amp; tipe objek</h2>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 417&ndash;431</div>
+        <pre><code>static __always_inline int read_dentry_name(struct dentry *dentry, char *name)
+{
+	struct qstr q = {};
+	long n;
+
+	if (!dentry)
+		return 0;
+
+	BPF_CORE_READ_INTO(&q, dentry, d_name);
+	if (!q.name || !q.len || q.len >= STATEDIFF_VFS_NAME_LEN)
+		return 0;
+
+	n = bpf_probe_read_kernel_str(name, STATEDIFF_VFS_NAME_LEN, q.name);
+	return n > 1 && n <= STATEDIFF_VFS_NAME_LEN;
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p><code>dentry-&gt;d_name</code> bertipe <code>struct qstr</code>: sebuah pointer ke karakter (<code>name</code>) plus panjangnya (<code>len</code>) — bukan string C biasa yang selalu diakhiri <code>\0</code>. <code>BPF_CORE_READ_INTO(&amp;q, dentry, d_name)</code> menyalin seluruh struct <code>qstr</code> itu ke variabel lokal <code>q</code>.</p>
+        <p>Baris <code>if (!q.name || !q.len || q.len &gt;= STATEDIFF_VFS_NAME_LEN)</code> menolak nama kosong atau nama yang melebihi kapasitas buffer tujuan (256 byte).</p>
+        <p><code>bpf_probe_read_kernel_str</code> menyalin string dari alamat <code>q.name</code> (memory kernel) ke buffer <code>name</code> milik pemanggil, sekaligus memastikan hasilnya diakhiri <code>\0</code> dengan aman. Nilai baliknya adalah jumlah byte yang disalin termasuk terminator.</p>
+      </div>
+
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 387&ndash;405</div>
+        <pre><code>static __always_inline int inode_is_dir(struct inode *inode)
+{
+	umode_t mode;
+
+	if (!inode)
+		return 0;
+	mode = BPF_CORE_READ(inode, i_mode);
+	return (mode & S_IFMT) == S_IFDIR;
+}
+
+static __always_inline int dentry_is_dir(struct dentry *dentry)
+{
+	struct inode *inode;
+
+	if (!dentry)
+		return 0;
+	inode = BPF_CORE_READ(dentry, d_inode);
+	return inode_is_dir(inode);
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p><code>inode-&gt;i_mode</code> adalah bitfield yang menyimpan tipe objek sekaligus izin akses. <code>S_IFMT</code> (<code>00170000</code>) adalah mask untuk mengambil hanya bit tipe objeknya; <code>S_IFDIR</code> (<code>0040000</code>) adalah nilai bit itu ketika objeknya direktori. Baris <code>(mode &amp; S_IFMT) == S_IFDIR</code> mengisolasi bit tipe lalu membandingkannya.</p>
+      </div>
+    </section>
+
+    <hr class="sep">
+
+    <section id="s5-1">
+      <h2><span class="num">5.1</span>current_key &amp; filtered_out</h2>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 290&ndash;307</div>
+        <pre><code>static __always_inline unsigned long long current_key(void)
+{
+	return bpf_get_current_pid_tgid();
+}
+
+static __always_inline int filtered_out(void)
+{
+	unsigned long long pid_tgid = bpf_get_current_pid_tgid();
+
+	if (ignored_pid && (unsigned int)(pid_tgid >> 32) == ignored_pid)
+		return 1;
+	return 0;
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p><code>bpf_get_current_pid_tgid()</code> adalah helper BPF yang mengembalikan satu nilai 64-bit: <strong>32 bit atas</strong> berisi PID (thread group ID / ID proses), <strong>32 bit bawah</strong> berisi TID (ID thread individual). Nilai gabungan ini dipakai sebagai key semua map <code>pending_*</code>.</p>
+        <p><code>filtered_out</code> mengambil 32 bit atas (<code>pid_tgid &gt;&gt; 32</code>, yaitu PID) dan membandingkannya dengan <code>ignored_pid</code> — variabel global yang diisi userspace sebelum program dimuat, berisi PID dari proses capturer itu sendiri (lihat baris 203: <code>const volatile unsigned int ignored_pid = 0;</code>). Ini satu-satunya filter "menyeluruh" di file ini: mencegah aktivitas filesystem milik capturer sendiri (mis. saat men-scan tree di awal) ikut terekam.</p>
+      </div>
+      <div class="example">
+        <span class="label">Contoh konkret</span>
+        <pre>Proses capturer berjalan dengan PID = 9001 -> ignored_pid = 9001
+Proses lain (mis. bash menjalankan `mkdir`) punya PID = 4210
+
+filtered_out() saat dipanggil dari proses PID 4210 -> 0 (tidak difilter)
+filtered_out() saat dipanggil dari proses PID 9001 -> 1 (difilter, capture dihentikan)</pre>
+      </div>
+    </section>
+
+    <section id="s5-2">
+      <h2><span class="num">5.2</span>Slot scratch &amp; inisialisasi</h2>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 309&ndash;344</div>
+        <pre><code>static __always_inline void init_pending(struct statediff_vfs_pending *p,
+					 unsigned int op)
+{
+	p->op = op;
+	p->mode = 0;
+	p->flags = 0;
+	p->offset = 0;
+	p->size = 0;
+	p->buf = 0;
+	p->is_dir = 0;
+	p->iov_ptr = 0;
+	p->pos_ptr = 0;
+	p->iov_segs = 0;
+	p->parent.dev = 0;
+	p->parent.ino = 0;
+	/* ... reset field key lain dengan pola sama ... */
+	p->name[0] = '\0';
+	p->new_name[0] = '\0';
+}
+
+static __always_inline struct statediff_vfs_pending *get_scratch(unsigned int op)
+{
+	unsigned int key = 0;
+	struct statediff_vfs_pending *p;
+
+	p = bpf_map_lookup_elem(&scratch, &key);
+	if (!p)
+		return 0;
+	init_pending(p, op);
+	return p;
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p><code>get_scratch</code> mengambil satu-satunya slot di map <code>scratch</code> (map <code>PERCPU_ARRAY</code> dengan <code>max_entries = 1</code>, jadi <code>key</code> selalu <code>0</code>) — karena tipenya <em>per-CPU</em>, setiap CPU sebenarnya punya salinan sendiri-sendiri, sehingga dua hook yang berjalan bersamaan di CPU berbeda tidak akan saling menimpa slot ini.</p>
+        <p>Sebelum dikembalikan, slot itu dibersihkan lewat <code>init_pending</code> supaya tidak membawa sisa data dari pemakaian sebelumnya di CPU yang sama.</p>
+      </div>
+      <div class="callout">
+        <span class="label">Kenapa tidak langsung deklarasi <code>struct statediff_vfs_pending p;</code> di dalam fungsi hook?</span>
+        <p>Verifier BPF membatasi ukuran stack (512 byte). <code>statediff_vfs_pending</code> berisi dua buffer nama 256 byte plus beberapa field lain — terlalu besar untuk stack. Map <code>scratch</code> dipakai sebagai "ruang kerja" di luar stack untuk menghindari batas ini.</p>
+      </div>
+
+      <h3>get_event_scratch</h3>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 467&ndash;472</div>
+        <pre><code>static __always_inline struct statediff_vfs_event_storage *get_event_scratch(void)
+{
+	unsigned int key = bpf_get_smp_processor_id();
+
+	return bpf_map_lookup_elem(&event_scratch, &key);
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p>Berbeda dari <code>scratch</code> (yang otomatis per-CPU lewat tipe map-nya), <code>event_scratch</code> adalah <code>ARRAY</code> biasa yang di-index <strong>manual</strong> memakai <code>bpf_get_smp_processor_id()</code> (ID CPU saat ini) sebagai key — teknik ini dipakai justru karena, seperti dijelaskan di Bagian 3, ukuran elemennya (~4&nbsp;MiB) melebihi batas <code>PERCPU_ARRAY</code>. Userspace mengatur <code>max_entries</code> map ini sama dengan jumlah CPU yang mungkin ada, sebelum program dimuat.</p>
+      </div>
+    </section>
+
+    <section id="s5-3">
+      <h2><span class="num">5.3</span>fill_common: dari pending ke event</h2>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 433&ndash;460</div>
+        <pre><code>static __always_inline void fill_common(struct statediff_vfs_event *e,
+					const struct statediff_vfs_pending *p,
+					long long ret)
+{
+	unsigned long long pid_tgid = bpf_get_current_pid_tgid();
+	unsigned long long uid_gid = bpf_get_current_uid_gid();
+
+	e->op = p->op;
+	e->pid = pid_tgid >> 32;
+	e->tid = (unsigned int)pid_tgid;
+	e->uid = (unsigned int)uid_gid;
+	e->gid = uid_gid >> 32;
+	e->cgroup_id = bpf_get_current_cgroup_id();
+	e->ret = ret;
+	e->mode = p->mode;
+	e->flags = p->flags;
+	e->offset = p->offset;
+	e->size = p->size;
+	e->cookie = 0;
+	e->is_dir = p->is_dir;
+	e->data_len = 0;
+	e->parent = p->parent;
+	e->object = p->object;
+	e->new_parent = p->new_parent;
+	e->new_object = p->new_object;
+	__builtin_memcpy(e->name, p->name, sizeof(e->name));
+	__builtin_memcpy(e->new_name, p->new_name, sizeof(e->new_name));
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p>Ini adalah fungsi yang benar-benar mengubah draft <code>statediff_vfs_pending</code> (<code>p</code>) menjadi event final <code>statediff_vfs_event</code> (<code>e</code>), dipanggil oleh hampir semua hook keluar. Field yang disalin apa adanya dari <code>p</code>: <code>op, mode, flags, offset, size, is_dir, parent, object, new_parent, new_object, name, new_name</code>.</p>
+        <p>Field yang <strong>baru diisi di sini</strong> (tidak ada di <code>pending</code>): <code>pid</code>/<code>tid</code> dari <code>bpf_get_current_pid_tgid()</code>, <code>uid</code>/<code>gid</code> dari <code>bpf_get_current_uid_gid()</code> (pola bit yang sama: 32 bit atas dan bawah), <code>cgroup_id</code> dari <code>bpf_get_current_cgroup_id()</code>, dan <code>ret</code> — diteruskan sebagai <strong>parameter fungsi</strong>, bukan dibaca dari <code>p</code>, karena nilai ini datang dari hasil operasi kernel (parameter <code>ret</code> hook keluar), sesuatu yang tidak diketahui saat <code>pending</code> dibuat di hook masuk.</p>
+        <p><code>e->cookie = 0</code> dan <code>e->data_len = 0</code> di-set default di sini; sebagian pemanggil (mis. jalur WRITE) mengubahnya lagi setelahnya.</p>
+      </div>
+    </section>
+
+    <section id="s5-4">
+      <h2><span class="num">5.4</span>emit_pending_event: penyelesai bersama</h2>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 462&ndash;501</div>
+        <pre><code>static __always_inline struct statediff_vfs_event *reserve_empty_event(void)
+{
+	return bpf_ringbuf_reserve(&rb, STATEDIFF_VFS_EVENT_HEADER_LEN, 0);
+}
+
+static __always_inline int emit_pending_event(void *map, long long ret)
+{
+	unsigned long long key = current_key();
+	struct statediff_vfs_pending *p;
+	struct statediff_vfs_event *e;
+
+	p = bpf_map_lookup_elem(map, &key);
+	if (!p)
+		return 0;
+
+	if (ret < 0) {
+		bpf_map_delete_elem(map, &key);
+		return 0;
+	}
+
+	e = reserve_empty_event();
+	if (!e) {
+		count_stat(11, 1);
+		bpf_map_delete_elem(map, &key);
+		return 0;
+	}
+
+	fill_common(e, p, ret);
+	bpf_map_delete_elem(map, &key);
+	count_stat(10, 1);
+	bpf_ringbuf_submit(e, 0);
+	return 0;
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan baris demi baris</span>
+        <p><code>reserve_empty_event()</code> memanggil <code>bpf_ringbuf_reserve(&amp;rb, STATEDIFF_VFS_EVENT_HEADER_LEN, 0)</code> — memesan slot di ring buffer <code>rb</code> sebesar header event saja (tanpa payload <code>data[]</code>), dan mengembalikan pointer langsung ke slot itu di dalam ring buffer. Dipakai oleh operasi yang tidak membawa data byte (mkdir, unlink, rmdir, dst).</p>
+        <p><code>emit_pending_event(map, ret)</code> menerima <code>map</code> — pointer ke salah satu map <code>pending_*</code> (mis. <code>&amp;pending_mkdir</code>) — dan <code>ret</code>, nilai balik operasi kernel dari hook keluar.</p>
+        <p>Baris <code>p = bpf_map_lookup_elem(map, &amp;key);</code> mengambil draft yang tadi disimpan hook masuk, dengan <code>key = current_key()</code> (pid_tgid saat ini, Bagian 5.1). Jika tidak ketemu (mis. hook masuk sudah menghentikan proses lebih awal karena parent tidak tracked), fungsi berhenti tanpa efek.</p>
+        <p>Baris <code>if (ret &lt; 0) { ...; return 0; }</code> — kalau operasi kernel gagal, draft dihapus dan <strong>tidak ada event dikirim sama sekali</strong>. File yang gagal dibuat, ditulis, dsb, memang tidak boleh masuk ke batch.</p>
+        <p>Baris <code>e = reserve_empty_event();</code> memesan slot di ring buffer. Jika ring buffer penuh, <code>reserve_empty_event</code> mengembalikan <code>NULL</code> — kejadian ini dicatat lewat <code>count_stat(11, 1)</code> (menaikkan <code>ringbuf_drops</code> di map <code>stats</code>, Bagian 2.4/14) sebagai <strong>kehilangan data</strong>.</p>
+        <p>Baris <code>fill_common(e, p, ret);</code> — mengisi event dari draft, seperti dibahas Bagian 5.3.</p>
+        <p>Baris <code>bpf_map_delete_elem(map, &amp;key);</code> — draft dibuang dari map <code>pending_*</code>, dilakukan sebelum submit supaya slot key ini bersih untuk pemakaian berikutnya oleh thread yang sama.</p>
+        <p>Baris <code>bpf_ringbuf_submit(e, 0);</code> — mengunci isi slot yang sudah diisi dan menandainya siap dibaca userspace. Ini titik akhir setiap hook keluar yang berhasil: dari sini, event sudah "keluar" dari program BPF.</p>
+      </div>
+    </section>
+
+    <section id="s5-5">
+      <h2><span class="num">5.5</span>save_child_op: pembuka bersama</h2>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 503&ndash;536</div>
+        <pre><code>static __always_inline int save_child_op(void *map, unsigned int op,
+					 struct inode *dir,
+					 struct dentry *dentry,
+					 unsigned int mode)
+{
+	unsigned long long key = current_key();
+	struct statediff_vfs_pending *p;
+
+	count_enter(op);
+	if (filtered_out())
+		return 0;
+
+	p = get_scratch(op);
+	if (!p)
+		return 0;
+	if (!inode_to_key(dir, &p->parent))
+		return 0;
+	if (!dir_is_tracked(&p->parent)) {
+		record_untracked_parent(op, &p->parent);
+		return 0;
+	}
+	if (!read_dentry_name(dentry, p->name)) {
+		count_stat(9, 1);
+		return 0;
+	}
+
+	p->mode = mode;
+	dentry_to_key(dentry, &p->object);
+	p->is_dir = op == SD_VFS_OP_MKDIR || op == SD_VFS_OP_RMDIR ||
+		dentry_is_dir(dentry);
+
+	bpf_map_update_elem(map, &key, p, BPF_ANY);
+	return 0;
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan baris demi baris</span>
+        <p>Parameter: <code>map</code> — map <code>pending_*</code> tujuan; <code>op</code> — jenis operasi; <code>dir</code> — inode direktori induk (argumen asli fungsi kernel yang di-hook); <code>dentry</code> — entri anak yang dioperasikan; <code>mode</code> — mode file, kalau relevan.</p>
+        <p><code>count_enter(op)</code> — menaikkan counter "enter" sesuai <code>op</code> di map <code>stats</code>, <strong>dijalankan sebelum</strong> pengecekan lain, supaya statistik mencatat semua percobaan, bahkan yang nanti difilter.</p>
+        <p><code>if (filtered_out()) return 0;</code> — berhenti kalau PID pemanggil adalah capturer sendiri (Bagian 5.1).</p>
+        <p><code>p = get_scratch(op);</code> — ambil &amp; bersihkan slot kerja (Bagian 5.2), langsung diisi <code>op</code>.</p>
+        <p><code>if (!inode_to_key(dir, &amp;p->parent)) return 0;</code> — ubah <code>dir</code> jadi identitas <code>(dev, ino)</code>, simpan ke <code>p->parent</code>. Gagal (mis. <code>dir</code> NULL) &rarr; berhenti.</p>
+        <p><code>if (!dir_is_tracked(&amp;p->parent)) { record_untracked_parent(...); return 0; }</code> — <strong>titik keputusan scoping</strong>: kalau induknya bukan direktori yang diawasi, operasi ini bukan urusan capturer. <code>record_untracked_parent</code> mencatat statistik diagnostik (identitas parent yang tidak dikenal serta jenis op-nya) sebelum berhenti.</p>
+        <p><code>if (!read_dentry_name(dentry, p->name)) { count_stat(9, 1); return 0; }</code> — ambil nama anak (Bagian 4.2). Gagal &rarr; naikkan counter <code>name_read_fail</code>, berhenti.</p>
+        <p><code>p->mode = mode; dentry_to_key(dentry, &amp;p->object);</code> — simpan mode, lalu identitas objek anak itu sendiri (kalau sudah punya inode).</p>
+        <p><code>p->is_dir = op == SD_VFS_OP_MKDIR || op == SD_VFS_OP_RMDIR || dentry_is_dir(dentry);</code> — untuk mkdir/rmdir, objeknya <strong>pasti</strong> direktori secara definisi operasi (bahkan sebelum/sesudah inode-nya ada), jadi ditandai langsung tanpa mengecek inode; operasi lain (unlink) memakai hasil pengecekan <code>dentry_is_dir</code> yang sebenarnya.</p>
+        <p><code>bpf_map_update_elem(map, &amp;key, p, BPF_ANY);</code> — simpan draft yang sudah lengkap ke map <code>pending_*</code>, dengan key <code>pid_tgid</code>. <code>BPF_ANY</code> berarti "timpa kalau sudah ada entry dengan key ini, buat baru kalau belum ada".</p>
+      </div>
+      <p>Fungsi ini dipakai oleh hook masuk <code>MKDIR</code>, <code>UNLINK</code>, dan <code>RMDIR</code> — tiga operasi yang polanya identik: sebuah nama anak dihapus/dibuat di dalam direktori induk.</p>
+    </section>
+
+    <hr class="sep">
+
+    <section id="s6-1" class="wide">
+      <h2><span class="num">6.1</span>MKDIR — Trace Lengkap Satu Operasi</h2>
+      <p class="lede">Contoh nyata: proses dengan PID 4210 menjalankan <code>mkdir("/tracked/dir/photos")</code>. <code>/tracked/dir</code> sudah diawasi (<code>dev:64768, ino:100</code>) sejak program dimulai.</p>
+
+      <div class="hook-badge"><span class="dot"></span>fentry/vfs_mkdir</div>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 597&ndash;602</div>
+        <pre><code>SEC("fentry/vfs_mkdir")
+int BPF_PROG(handle_vfs_mkdir, struct mnt_idmap *idmap, struct inode *dir,
+	     struct dentry *dentry, umode_t mode)
+{
+	return save_child_op(&pending_mkdir, SD_VFS_OP_MKDIR, dir, dentry, mode);
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p>Kernel memanggil ini tepat sebelum <code>vfs_mkdir()</code> benar-benar membuat direktori. <code>dir</code> menunjuk ke inode <code>/tracked/dir</code>, <code>dentry</code> mewakili entri <code>"photos"</code> yang akan dibuat. Fungsi ini langsung memanggil <code>save_child_op</code> (Bagian 5.5) dengan map tujuan <code>&amp;pending_mkdir</code>.</p>
+      </div>
+      <div class="example">
+        <span class="label">Nilai konkret setelah save_child_op selesai</span>
+        <pre>key (pid_tgid)     = milik thread PID 4210, TID 4210
+pending_mkdir[key] = {
+  op:     SD_VFS_OP_MKDIR
+  parent: {dev:64768, ino:100}      // /tracked/dir
+  object: {dev:64768, ino:0}        // "photos" belum py inode nyata di titik ini
+  name:   "photos"
+  is_dir: 1
+}</pre>
+      </div>
+
+      <div class="hook-badge"><span class="dot"></span>fexit/vfs_mkdir</div>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 604&ndash;616</div>
+        <pre><code>SEC("fexit/vfs_mkdir")
+int BPF_PROG(handle_vfs_mkdir_ret, struct mnt_idmap *idmap, struct inode *dir,
+	     struct dentry *dentry, umode_t mode, int ret)
+{
+	struct statediff_vfs_pending *p;
+	unsigned long long key = current_key();
+	unsigned char tracked = 1;
+
+	p = bpf_map_lookup_elem(&pending_mkdir, &key);
+	if (p && ret >= 0 && dentry_to_key(dentry, &p->object))
+		bpf_map_update_elem(&tracked_dirs, &p->object, &tracked, BPF_ANY);
+	return emit_pending_event(&pending_mkdir, ret);
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan baris demi baris</span>
+        <p>Kernel menjalankan ini setelah <code>vfs_mkdir()</code> selesai. Parameter tambahan <code>ret</code> (di sini <code>ret = 0</code>, sukses) adalah nilai balik fungsi kernel aslinya.</p>
+        <p><code>p = bpf_map_lookup_elem(&amp;pending_mkdir, &amp;key);</code> — ambil kembali draft yang disimpan hook masuk, dengan <code>key</code> yang sama (thread yang sama).</p>
+        <p><code>if (p &amp;&amp; ret &gt;= 0 &amp;&amp; dentry_to_key(dentry, &amp;p->object))</code> — sekarang, <em>setelah</em> direktori benar-benar dibuat, <code>dentry</code> punya inode nyata. Baris ini membaca ulang identitasnya (kali ini berhasil, mis. <code>ino:205</code>).</p>
+        <p><code>bpf_map_update_elem(&amp;tracked_dirs, &amp;p->object, &amp;tracked, BPF_ANY);</code> — <strong>direktori baru langsung didaftarkan ke <code>tracked_dirs</code></strong>. Ini sebabnya operasi <em>di dalam</em> <code>photos/</code> nanti (misalnya <code>touch photos/a.txt</code>) ikut terdeteksi, walau <code>photos</code> baru saja dibuat detik itu juga — tidak perlu menunggu scan ulang.</p>
+        <p><code>return emit_pending_event(&amp;pending_mkdir, ret);</code> — memanggil fungsi penyelesai bersama (Bagian 5.4): membangun event final dan mengirimkannya ke ring buffer <code>rb</code>.</p>
+      </div>
+      <div class="example">
+        <span class="label">Event final yang keluar ke ring buffer</span>
+        <pre>statediff_vfs_event {
+  op:     SD_VFS_OP_MKDIR
+  pid:    4210, tid: 4210
+  ret:    0
+  parent: {dev:64768, ino:100}
+  object: {dev:64768, ino:205}
+  name:   "photos"
+  is_dir: 1
+}
+
+tracked_dirs sekarang berisi tambahan:
+  {dev:64768, ino:205} -> 1   // "photos" ikut diawasi</pre>
+      </div>
+    </section>
+
+    <section id="s6-2">
+      <h2><span class="num">6.2</span>UNLINK &amp; RMDIR</h2>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 1094&ndash;1126</div>
+        <pre><code>SEC("fentry/vfs_unlink")
+int BPF_PROG(handle_vfs_unlink, struct mnt_idmap *idmap, struct inode *dir,
+	     struct dentry *dentry, struct inode **delegated_inode)
+{
+	return save_child_op(&pending_unlink, SD_VFS_OP_UNLINK, dir, dentry, 0);
+}
+
+SEC("fexit/vfs_unlink")
+int BPF_PROG(handle_vfs_unlink_ret, struct mnt_idmap *idmap, struct inode *dir,
+	     struct dentry *dentry, struct inode **delegated_inode, int ret)
+{
+	return emit_pending_event(&pending_unlink, ret);
+}
+
+SEC("fentry/vfs_rmdir")
+int BPF_PROG(handle_vfs_rmdir, struct mnt_idmap *idmap, struct inode *dir,
+	     struct dentry *dentry)
+{
+	return save_child_op(&pending_rmdir, SD_VFS_OP_RMDIR, dir, dentry, 0);
+}
+
+SEC("fexit/vfs_rmdir")
+int BPF_PROG(handle_vfs_rmdir_ret, struct mnt_idmap *idmap, struct inode *dir,
+	     struct dentry *dentry, int ret)
+{
+	struct statediff_vfs_pending *p;
+	unsigned long long key = current_key();
+
+	p = bpf_map_lookup_elem(&pending_rmdir, &key);
+	if (p && ret >= 0)
+		bpf_map_delete_elem(&tracked_dirs, &p->object);
+	return emit_pending_event(&pending_rmdir, ret);
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p><code>handle_vfs_unlink</code> — memanggil <code>save_child_op</code> persis seperti mkdir, dengan map <code>&amp;pending_unlink</code>. <code>handle_vfs_unlink_ret</code> hanya memanggil <code>emit_pending_event</code> langsung, tanpa langkah tambahan.</p>
+        <p><code>handle_vfs_rmdir</code> — sama seperti unlink. <code>handle_vfs_rmdir_ret</code> menambahkan satu langkah: <code>bpf_map_delete_elem(&amp;tracked_dirs, &amp;p->object)</code> — kebalikan dari mkdir. Direktori yang berhasil dihapus <strong>dikeluarkan</strong> dari <code>tracked_dirs</code>, karena subtree itu sudah tidak ada lagi untuk diawasi.</p>
+      </div>
+      <div class="callout">
+        <span class="label">Simetri mkdir &harr; rmdir</span>
+        <p><code>tracked_dirs</code> adalah map yang hidup dan berubah seiring waktu, bukan snapshot statis dari awal program. mkdir menambah entry, rmdir menghapusnya; rename (Bagian 11) memindahkannya.</p>
+      </div>
+    </section>
+
+    <hr class="sep">
+
+    <section id="s7">
+      <h2><span class="num">7</span>CREATE — Kasus Khusus Tanpa Pasangan</h2>
+      <div class="hook-badge"><span class="dot"></span>fexit/do_filp_open</div>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 544&ndash;595</div>
+        <pre><code>SEC("fexit/do_filp_open")
+int BPF_PROG(handle_do_filp_open, int dfd, void *pathname, void *op,
+	     struct file *file)
+{
+	struct statediff_vfs_pending *p;
+	struct statediff_vfs_event *e;
+	struct dentry *dentry;
+	struct inode *inode;
+	unsigned int fmode;
+	unsigned long fp = (unsigned long)file;
+
+	if (fp == 0 || fp >= (unsigned long)-4095L)
+		return 0;
+
+	fmode = BPF_CORE_READ(file, f_mode);
+	if (!(fmode & FMODE_CREATED))
+		return 0;
+
+	count_enter(SD_VFS_OP_CREATE);
+	if (filtered_out())
+		return 0;
+
+	p = get_scratch(SD_VFS_OP_CREATE);
+	if (!p)
+		return 0;
+
+	dentry = BPF_CORE_READ(file, f_path.dentry);
+	if (!dentry_parent_key(dentry, &p->parent))
+		return 0;
+	if (!dir_is_tracked(&p->parent)) {
+		record_untracked_parent(SD_VFS_OP_CREATE, &p->parent);
+		return 0;
+	}
+	if (!read_dentry_name(dentry, p->name)) {
+		count_stat(9, 1);
+		return 0;
+	}
+
+	inode = BPF_CORE_READ(dentry, d_inode);
+	inode_to_key(inode, &p->object);
+	p->mode = BPF_CORE_READ(inode, i_mode);
+	p->is_dir = inode_is_dir(inode);
+
+	e = reserve_empty_event();
+	if (!e)
+		return 0;
+	fill_common(e, p, 0);
+	count_stat(10, 1);
+	bpf_ringbuf_submit(e, 0);
+	return 0;
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Kenapa cuma satu hook, bukan sepasang?</span>
+        <p>Komentar sumber (baris 538&ndash;543) menjelaskan: <code>open(O_CREAT)</code> di ext4 (dan sebagian besar filesystem lokal) <strong>tidak</strong> lewat <code>vfs_create()</code> — fungsi <code>lookup_open()</code> di kernel memanggil <code>dir-&gt;i_op-&gt;create()</code> langsung. Karena itu <code>do_filp_open()</code>, fungsi umum di belakang syscall <code>open()</code>, dipakai sebagai titik hook — dan karena kita hanya butuh tahu hasil akhirnya (berhasil dibuat atau tidak), satu hook <code>fexit</code> saja cukup; tidak perlu draft yang dititip lewat map <code>pending_*</code>.</p>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan baris demi baris</span>
+        <p><code>fp = (unsigned long)file; if (fp == 0 || fp &gt;= (unsigned long)-4095L) return 0;</code> — konvensi kernel: fungsi yang mengembalikan pointer memakai nilai di 4095 byte terakhir ruang alamat untuk menandakan error (<em>ERR_PTR</em>), bukan pointer valid. Baris ini menyaring <code>do_filp_open()</code> yang gagal (mis. <code>-ENOENT</code> dikodekan sebagai pointer).</p>
+        <p><code>fmode = BPF_CORE_READ(file, f_mode); if (!(fmode &amp; FMODE_CREATED)) return 0;</code> — <code>file-&gt;f_mode</code> punya bit <code>FMODE_CREATED</code> (0x100000) yang kernel nyalakan <strong>hanya kalau</strong> proses <code>open()</code> ini yang benar-benar membuat file baru (bukan membuka file yang sudah ada). Ini pembeda utama create vs. open biasa.</p>
+        <p>Sisanya mengikuti pola yang sama seperti <code>save_child_op</code> (resolve parent, cek tracked, baca nama) tapi ditulis manual di sini, lalu langsung membangun &amp; mengirim event tanpa mampir ke map <code>pending_*</code> — karena semua data yang dibutuhkan (termasuk hasil akhir operasi) sudah tersedia dalam satu titik hook ini.</p>
+      </div>
+    </section>
+
+    <hr class="sep">
+
+    <section id="s8-1" class="wide">
+      <h2><span class="num">8.1</span>WRITE — vfs_write (tulisan biasa)</h2>
+      <div class="hook-badge"><span class="dot"></span>fentry/vfs_write</div>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 618&ndash;657</div>
+        <pre><code>SEC("fentry/vfs_write")
+int BPF_PROG(handle_vfs_write, struct file *file, const char *buf,
+	     size_t count, loff_t *pos)
+{
+	unsigned long long key = current_key();
+	struct statediff_vfs_pending *p;
+	struct dentry *dentry;
+	loff_t offset = 0;
+
+	count_enter(SD_VFS_OP_WRITE);
+	if (filtered_out() || !file)
+		return 0;
+
+	p = get_scratch(SD_VFS_OP_WRITE);
+	if (!p)
+		return 0;
+
+	dentry = BPF_CORE_READ(file, f_path.dentry);
+	if (!dentry_parent_key(dentry, &p->parent))
+		return 0;
+	if (!dir_is_tracked(&p->parent)) {
+		record_untracked_parent(SD_VFS_OP_WRITE, &p->parent);
+		return 0;
+	}
+	if (!dentry_to_key(dentry, &p->object))
+		return 0;
+	if (!read_dentry_name(dentry, p->name)) {
+		count_stat(9, 1);
+		return 0;
+	}
+
+	if (pos)
+		bpf_probe_read_kernel(&offset, sizeof(offset), pos);
+
+	p->offset = offset;
+	p->size = count;
+	p->buf = buf;
+	bpf_map_update_elem(&pending_write, &key, p, BPF_ANY);
+	return 0;
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p>Parameter <code>buf</code> — pointer ke buffer di memory <strong>proses user</strong> yang berisi byte yang mau ditulis (mis. isi <code>"hello world\n"</code> yang dipegang aplikasi). <code>count</code> — jumlah byte yang diminta untuk ditulis. <code>pos</code> — pointer ke posisi file (<code>loff_t</code>) di dalam struct <code>file</code> kernel.</p>
+        <p><code>if (pos) bpf_probe_read_kernel(&amp;offset, sizeof(offset), pos);</code> — <code>pos</code> menunjuk ke memory <strong>kernel</strong> (bagian dari struct <code>file</code>), sehingga dibaca dengan <code>bpf_probe_read_kernel</code>, bukan <code>_user</code>. Ini posisi file <em>sebelum</em> operasi tulis dimulai.</p>
+        <p><code>p->offset = offset; p->size = count; p->buf = buf;</code> — <strong>penting: <code>buf</code> di sini hanya disimpan sebagai alamat mentah</strong> (pointer), isi byte-nya <em>belum</em> dibaca sama sekali. Membaca isi buffer user itu mahal dan hanya dilakukan di hook keluar, dan hanya sebanyak yang benar-benar berhasil ditulis kernel (<code>ret</code>), bukan sebanyak yang diminta (<code>count</code>) — keduanya bisa berbeda pada <em>short write</em>.</p>
+      </div>
+
+      <div class="hook-badge"><span class="dot"></span>fexit/vfs_write</div>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 659&ndash;753 (inti loop dipendekkan)</div>
+        <pre><code>SEC("fexit/vfs_write")
+int BPF_PROG(handle_vfs_write_ret, struct file *file, const char *buf,
+	     size_t count, loff_t *pos, ssize_t ret)
+{
+	struct statediff_vfs_pending *p;
+	unsigned long long written;
+	unsigned long long emitted = 0;
+	unsigned long long start_offset;
+
+	p = bpf_map_lookup_elem(&pending_write, &current_key());
+	if (!p)
+		return 0;
+	if (ret <= 0) {
+		bpf_map_delete_elem(&pending_write, &current_key());
+		return 0;
+	}
+
+	written = (unsigned long long)ret;
+	start_offset = p->offset;
+	/* ... koreksi start_offset untuk O_APPEND, lihat penjelasan ... */
+
+	for (int i = 0; i < STATEDIFF_VFS_MAX_WRITE_CHUNKS; i++) {
+		if (emitted >= written)
+			break;
+
+		unsigned int data_len = (written - emitted > STATEDIFF_VFS_MAX_WRITE_DATA_LEN)
+			? STATEDIFF_VFS_MAX_WRITE_DATA_LEN
+			: (unsigned int)(written - emitted);
+
+		struct statediff_vfs_event_storage *storage = get_event_scratch();
+		struct statediff_vfs_event *e = (struct statediff_vfs_event *)storage;
+
+		bpf_probe_read_user(storage->data, data_len, p->buf + emitted);
+
+		fill_common(e, p, data_len);
+		e->offset = start_offset + emitted;
+		e->size = data_len;
+		e->data_len = data_len;
+
+		bpf_ringbuf_output(&rb, storage,
+				   STATEDIFF_VFS_EVENT_HEADER_LEN + data_len, 0);
+		emitted += data_len;
+	}
+
+	bpf_map_delete_elem(&pending_write, &current_key());
+	return 0;
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan &mdash; kenapa harus dipecah jadi potongan (chunk)?</span>
+        <p><code>STATEDIFF_VFS_MAX_WRITE_DATA_LEN</code> adalah 4&nbsp;MiB — batas ukuran satu event beserta payloadnya. Kalau <code>write()</code> menulis lebih dari 4&nbsp;MiB sekaligus (jarang tapi mungkin, mis. <code>write(fd, buf, 10*1024*1024)</code>), hasilnya harus dipecah jadi beberapa event <code>WRITE</code> berurutan, maksimum <code>STATEDIFF_VFS_MAX_WRITE_CHUNKS</code> (16) potongan.</p>
+        <p><code>storage = get_event_scratch();</code> — ambil buffer staging 4&nbsp;MiB milik CPU saat ini (Bagian 5.2). <code>bpf_probe_read_user(storage-&gt;data, data_len, p->buf + emitted)</code> — di sinilah isi byte tulisan <strong>benar-benar disalin</strong>, dari alamat user <code>p-&gt;buf + emitted</code> (Bagian offset dari buffer asli yang sudah dikirim ke <code>emitted</code> byte sebelumnya) ke buffer staging kernel. <code>_user</code> (bukan <code>_kernel</code>) dipakai karena <code>buf</code> memang alamat di memory proses user.</p>
+        <p><code>e->offset = start_offset + emitted;</code> — setiap potongan event membawa offset file-nya <strong>sendiri</strong>, dihitung dari posisi awal tulisan ditambah berapa byte yang sudah dikirim di potongan-potongan sebelumnya.</p>
+        <p><code>bpf_ringbuf_output(&amp;rb, storage, STATEDIFF_VFS_EVENT_HEADER_LEN + data_len, 0);</code> — beda dari <code>bpf_ringbuf_reserve</code>+<code>submit</code> (Bagian 5.4) yang memberi pointer langsung ke slot ring buffer untuk diisi di tempat, <code>bpf_ringbuf_output</code> <strong>menyalin</strong> buffer <code>storage</code> yang sudah lengkap terisi ke ring buffer dalam satu langkah. Dipakai di sini karena data sudah harus dirakit dulu di <code>event_scratch</code> (empat MiB, tidak muat di stack), baru dipindah ke ring buffer.</p>
+      </div>
+      <div class="example">
+        <span class="label">Contoh konkret</span>
+        <pre>Proses PID 4210 menjalankan write(fd, "hello world\n", 12) pada file
+/tracked/dir/foo.txt, posisi file sebelumnya = 0.
+
+fentry: p->offset=0, p->size=12, p->buf=alamat_user_buffer
+fexit:  ret=12 (semua 12 byte berhasil ditulis)
+        loop jalan 1x (12 byte < 4MiB, muat 1 chunk):
+          data_len = 12
+          storage->data = "hello world\n"  (hasil bpf_probe_read_user)
+          e->offset = 0
+          e->size = 12
+          e->data_len = 12
+        -> 1 event WRITE terkirim ke ring buffer rb</pre>
+      </div>
+      <div class="callout">
+        <span class="label">Koreksi offset untuk O_APPEND</span>
+        <p>Untuk file yang dibuka dengan <code>O_APPEND</code>, posisi <em>sebelum</em> tulisan (dibaca hook masuk) belum tentu tempat byte itu benar-benar mendarat — kernel baru menggeser posisi file ke akhir <em>selama</em> operasi tulis berjalan. Kode (tidak ditampilkan di potongan atas demi ringkas) membaca ulang <code>*pos</code> di hook keluar dan menghitung mundur: <code>start_offset = end_offset - ret</code>, memakai posisi akhir yang sudah pasti benar dikurangi jumlah byte yang berhasil ditulis.</p>
+      </div>
+    </section>
+
+    <section id="s8-2" class="wide">
+      <h2><span class="num">8.2</span>WRITE — vfs_writev (tulisan vector)</h2>
+      <p class="lede"><code>writev()</code>/<code>pwritev()</code> menulis banyak buffer terpisah (iovec) dalam satu panggilan syscall, mis. dipakai PostgreSQL menulis beberapa halaman WAL sekaligus. Jalur ini tidak pernah lewat <code>vfs_write</code>.</p>
+
+      <div class="hook-badge"><span class="dot"></span>kprobe/vfs_writev</div>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 766&ndash;806</div>
+        <pre><code>SEC("kprobe/vfs_writev")
+int BPF_KPROBE(handle_vfs_writev, struct file *file, const struct iovec *vec,
+	       unsigned long vlen, loff_t *pos)
+{
+	unsigned long long key = current_key();
+	struct statediff_vfs_pending *p;
+	struct dentry *dentry;
+	loff_t offset = 0;
+
+	count_enter(SD_VFS_OP_WRITE);
+	if (filtered_out() || !file || !vec)
+		return 0;
+
+	p = get_scratch(SD_VFS_OP_WRITE);
+	if (!p)
+		return 0;
+
+	dentry = BPF_CORE_READ(file, f_path.dentry);
+	if (!dentry_parent_key(dentry, &p->parent))
+		return 0;
+	if (!dir_is_tracked(&p->parent)) {
+		record_untracked_parent(SD_VFS_OP_WRITE, &p->parent);
+		return 0;
+	}
+	if (!dentry_to_key(dentry, &p->object))
+		return 0;
+	if (!read_dentry_name(dentry, p->name)) {
+		count_stat(9, 1);
+		return 0;
+	}
+
+	if (pos)
+		bpf_probe_read_kernel(&offset, sizeof(offset), pos);
+	p->offset = offset;
+	p->pos_ptr = (unsigned long long)pos;
+	p->iov_ptr = (unsigned long long)vec;
+	p->iov_segs = vlen;
+
+	bpf_map_update_elem(&pending_writev, &key, p, BPF_ANY);
+	return 0;
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p>Sama seperti <code>handle_vfs_write</code>, tapi <strong>tidak membaca isi buffer sama sekali</strong> di sini. Yang disimpan hanya tiga hal mentah: <code>p->iov_ptr</code> (alamat array iovec milik user — array pasangan <code>{base, len}</code> yang masing-masing menunjuk satu buffer terpisah), <code>p->pos_ptr</code> (alamat <code>loff_t*</code> posisi file, disimpan sebagai pointer <strong>karena</strong> hook keluar nanti tidak punya akses ke parameter <code>pos</code> lagi — lihat Bagian 1.3), dan <code>p->iov_segs</code> (jumlah segmen, dari parameter <code>vlen</code>).</p>
+      </div>
+
+      <div class="hook-badge"><span class="dot"></span>bpf_loop callback: writev_emit_seg</div>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 825&ndash;890</div>
+        <pre><code>struct writev_emit_ctx {
+	unsigned long long key;
+	unsigned long long emitted;
+};
+
+static long writev_emit_seg(unsigned int i, void *data)
+{
+	struct writev_emit_ctx *c = data;
+	struct statediff_vfs_pending *p;
+	const struct iovec *vec;
+	struct iovec seg;
+
+	p = bpf_map_lookup_elem(&pending_writev, &c->key);
+	if (!p)
+		return 1;
+
+	vec = (const struct iovec *)p->iov_ptr;
+	if (bpf_probe_read_user(&seg, sizeof(seg), &vec[i]) < 0) {
+		count_stat(14, 1);
+		return 1;
+	}
+
+	unsigned long long base = (unsigned long long)seg.iov_base;
+	unsigned long long seg_len = (unsigned long long)seg.iov_len;
+	if (seg_len == 0)
+		return 0;
+
+	unsigned int chunk = seg_len > STATEDIFF_VFS_MAX_WRITE_DATA_LEN
+		? STATEDIFF_VFS_MAX_WRITE_DATA_LEN : (unsigned int)seg_len;
+
+	struct statediff_vfs_event_storage *storage = get_event_scratch();
+	struct statediff_vfs_event *e = (struct statediff_vfs_event *)storage;
+
+	bpf_probe_read_user(storage->data, chunk, (const void *)base);
+
+	fill_common(e, p, chunk);
+	e->offset = p->offset + c->emitted;
+	e->size = chunk;
+	e->data_len = chunk;
+
+	bpf_ringbuf_output(&rb, storage,
+			   STATEDIFF_VFS_EVENT_HEADER_LEN + chunk, 0);
+	c->emitted += chunk;
+	return 0;
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan &mdash; apa itu bpf_loop?</span>
+        <p><code>bpf_loop(jumlah_iterasi, fungsi_callback, data, 0)</code> adalah helper BPF yang menjalankan <code>fungsi_callback</code> berulang sebanyak <code>jumlah_iterasi</code> kali. Program BPF tidak boleh punya perulangan biasa (<code>for</code>/<code>while</code>) dengan jumlah iterasi yang tidak bisa dipastikan verifier di awal — <code>bpf_loop</code> adalah cara resmi untuk melakukan perulangan yang jumlahnya baru diketahui saat runtime.</p>
+        <p><code>i</code> — nomor iterasi saat ini (indeks segmen iovec ke berapa). <code>data</code> — pointer ke <code>struct writev_emit_ctx</code> yang dibagikan ke semua iterasi, dipakai untuk melacak <code>emitted</code> (total byte yang sudah dikirim lintas-iterasi).</p>
+        <p><code>vec[i]</code> dibaca lewat <code>bpf_probe_read_user</code> — array iovec ada di memory <strong>user</strong>, bukan kernel. Satu <code>struct iovec</code> berisi <code>{iov_base, iov_len}</code>: alamat &amp; panjang satu segmen buffer.</p>
+        <p>Sisanya mengikuti pola yang identik dengan potongan <code>vfs_write</code>: baca isi segmen ke <code>event_scratch</code>, isi event, kirim ke ring buffer. Bedanya, offset filenya dihitung dari <code>p->offset + c->emitted</code> — <code>c->emitted</code> terakumulasi lintas-segmen (bukan lintas-chunk seperti pada <code>vfs_write</code>), karena tiap segmen iovec adalah tulisan yang letaknya berurutan begitu saja di file, mengikuti urutan segmennya.</p>
+      </div>
+      <div class="callout">
+        <span class="label">Catatan verifier tentang <code>emitted</code></span>
+        <p>Komentar sumber (baris 816&ndash;824) menekankan: <code>emitted</code> hanya boleh dipakai untuk mengisi <strong>nilai yang disimpan</strong> (<code>e-&gt;offset</code>), <strong>tidak pernah</strong> untuk menentukan alur kontrol (percabangan/pembatasan salinan). Kalau dipakai untuk itu, verifier BPF terpaksa melacak nilainya secara presisi di setiap iterasi dan mensimulasikan loop selangkah 4&nbsp;MiB pada satu waktu — sampai batas jumlah langkah verifikasi terlampaui, dan program gagal dimuat sama sekali.</p>
+      </div>
+
+      <div class="hook-badge"><span class="dot"></span>kretprobe/vfs_writev</div>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 892&ndash;955 (dipendekkan)</div>
+        <pre><code>SEC("kretprobe/vfs_writev")
+int BPF_KRETPROBE(handle_vfs_writev_ret, ssize_t ret)
+{
+	unsigned long long key = current_key();
+	struct statediff_vfs_pending *p;
+	struct writev_emit_ctx emit = {};
+
+	p = bpf_map_lookup_elem(&pending_writev, &key);
+	if (!p)
+		return 0;
+	if (ret <= 0) {
+		bpf_map_delete_elem(&pending_writev, &key);
+		return 0;
+	}
+
+	unsigned long long written = (unsigned long long)ret;
+	unsigned int segs = p->iov_segs > STATEDIFF_VFS_MAX_IOV_SEGS
+		? STATEDIFF_VFS_MAX_IOV_SEGS : p->iov_segs;
+
+	if (p->pos_ptr) {
+		long long end_offset = 0;
+		if (bpf_probe_read_kernel(&end_offset, sizeof(end_offset),
+					  (void *)p->pos_ptr) == 0 &&
+		    (unsigned long long)end_offset >= written)
+			p->offset = (unsigned long long)end_offset - written;
+	}
+
+	emit.key = key;
+	emit.emitted = 0;
+	bpf_loop(segs, writev_emit_seg, &emit, 0);
+
+	bpf_map_delete_elem(&pending_writev, &key);
+	return 0;
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p>Sesuai Bagian 1.3, fungsi ini <strong>hanya</strong> menerima <code>ret</code> — nilai balik <code>vfs_writev()</code>, total byte yang berhasil ditulis dari semua segmen gabungan.</p>
+        <p>Blok <code>if (p->pos_ptr) { ... }</code> membaca ulang posisi file lewat pointer yang dititipkan hook masuk (<code>p->pos_ptr</code>), lalu menghitung mundur <code>p->offset = end_offset - written</code> — koreksi yang sama seperti <code>O_APPEND</code> pada <code>vfs_write</code> (Bagian 8.1), diperlukan karena <code>kretprobe</code> tidak bisa membaca parameter <code>pos</code> aslinya secara langsung.</p>
+        <p><code>bpf_loop(segs, writev_emit_seg, &amp;emit, 0);</code> — menjalankan fungsi Bagian sebelumnya sebanyak <code>segs</code> kali (dibatasi maksimum <code>STATEDIFF_VFS_MAX_IOV_SEGS</code> = 1024, sama dengan batas kernel <code>UIO_MAXIOV</code>), satu event <code>WRITE</code> terkirim per segmen.</p>
+      </div>
+      <div class="example">
+        <span class="label">Contoh konkret</span>
+        <pre>pwritev(fd, [{"AAA",3}, {"BBBBB",5}], 2, offset=100)
+ret = 8 (total byte berhasil)
+
+Hasil: 2 event WRITE terpisah dikirim ke ring buffer:
+  event 1: offset=100, size=3, data="AAA"
+  event 2: offset=103, size=5, data="BBBBB"</pre>
+      </div>
+    </section>
+
+    <hr class="sep">
+
+    <section id="s9">
+      <h2><span class="num">9</span>TRUNCATE — do_truncate</h2>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 964&ndash;1002</div>
+        <pre><code>SEC("fentry/do_truncate")
+int BPF_PROG(handle_do_truncate, struct mnt_idmap *idmap, struct dentry *dentry,
+	     loff_t length, unsigned int time_attrs, struct file *filp)
+{
+	unsigned long long key = current_key();
+	struct statediff_vfs_pending *p;
+
+	count_enter(SD_VFS_OP_TRUNCATE);
+	if (filtered_out() || !dentry)
+		return 0;
+
+	p = get_scratch(SD_VFS_OP_TRUNCATE);
+	if (!p)
+		return 0;
+	if (!dentry_parent_key(dentry, &p->parent))
+		return 0;
+	if (!dir_is_tracked(&p->parent)) {
+		record_untracked_parent(SD_VFS_OP_TRUNCATE, &p->parent);
+		return 0;
+	}
+	if (!dentry_to_key(dentry, &p->object))
+		return 0;
+	if (!read_dentry_name(dentry, p->name)) {
+		count_stat(9, 1);
+		return 0;
+	}
+
+	p->size = length;
+	bpf_map_update_elem(&pending_truncate, &key, p, BPF_ANY);
+	return 0;
+}
+
+SEC("fexit/do_truncate")
+int BPF_PROG(handle_do_truncate_ret, struct mnt_idmap *idmap,
+	     struct dentry *dentry, loff_t length, unsigned int time_attrs,
+	     struct file *filp, int ret)
+{
+	return emit_pending_event(&pending_truncate, ret);
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Kenapa <code>do_truncate</code>, bukan <code>vfs_truncate</code>?</span>
+        <p>Komentar sumber (baris 958&ndash;963): <code>vfs_truncate()</code> hanya menangani syscall <code>truncate(2)</code>. <code>ftruncate(2)</code> dan <code>open(..., O_TRUNC)</code> pada file yang sudah ada mencapai <code>do_truncate()</code> tanpa lewat <code>vfs_truncate</code> — sementara <code>vfs_truncate</code> sendiri, kalau dipanggil, ujungnya <strong>juga</strong> memanggil <code>do_truncate()</code>. Jadi <code>do_truncate</code> adalah satu-satunya titik yang pasti dilewati oleh ketiga jalur itu.</p>
+        <p>Untuk file yang baru dibuat dengan <code>O_CREAT</code>, kernel tidak menjalankan truncate sama sekali (file baru sudah kosong), sehingga hook ini tidak pernah dobel-tembak dengan event <code>CREATE</code> (Bagian 7).</p>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p>Polanya identik dengan mkdir/unlink (resolve parent &rarr; cek tracked &rarr; baca nama), hanya ditulis manual (bukan lewat <code>save_child_op</code>) karena parameter fungsi asalnya berbeda (<code>dentry</code> langsung, bukan <code>dir</code>+<code>dentry</code> terpisah). Field baru: <code>p->size = length;</code> — <code>length</code> adalah ukuran akhir file yang diminta, disimpan sebagai <code>size</code> pada event, bukan sebagai byte data.</p>
+      </div>
+    </section>
+
+    <section id="s10" class="wide">
+      <h2><span class="num">10</span>FALLOCATE — vfs_fallocate</h2>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 1015&ndash;1092</div>
+        <pre><code>SEC("fentry/vfs_fallocate")
+int BPF_PROG(handle_vfs_fallocate, struct file *file, int mode, loff_t offset,
+	     loff_t len)
+{
+	unsigned long long key = current_key();
+	struct statediff_vfs_pending *p;
+	struct dentry *dentry;
+
+	count_enter(SD_VFS_OP_TRUNCATE);
+	if (filtered_out() || !file || mode == FALLOC_FL_KEEP_SIZE)
+		return 0;
+
+	p = get_scratch(SD_VFS_OP_TRUNCATE);
+	/* ... resolve parent, cek tracked, baca nama (pola sama) ... */
+
+	p->mode = (unsigned int)mode;
+	p->offset = offset;
+	p->size = len;
+	bpf_map_update_elem(&pending_fallocate, &key, p, BPF_ANY);
+	return 0;
+}
+
+SEC("fexit/vfs_fallocate")
+int BPF_PROG(handle_vfs_fallocate_ret, struct file *file, int mode,
+	     loff_t offset, loff_t len, int ret)
+{
+	unsigned long long key = current_key();
+	struct statediff_vfs_pending *p;
+	struct inode *inode;
+
+	p = bpf_map_lookup_elem(&pending_fallocate, &key);
+	if (!p)
+		return 0;
+	if (ret < 0) {
+		bpf_map_delete_elem(&pending_fallocate, &key);
+		return 0;
+	}
+
+	if (p->mode == FALLOC_FL_ZERO_RANGE ||
+	    p->mode == (FALLOC_FL_ZERO_RANGE | FALLOC_FL_KEEP_SIZE) ||
+	    p->mode == (FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE)) {
+		p->op = SD_VFS_OP_ZERO_RANGE;
+		p->flags = p->mode & FALLOC_FL_KEEP_SIZE
+			? SD_VFS_ZERO_RANGE_F_KEEP_SIZE : 0;
+		p->mode = 0;
+		return emit_pending_event(&pending_fallocate, ret);
+	}
+	if (p->mode != 0) {
+		count_stat(20, 1);
+		bpf_map_delete_elem(&pending_fallocate, &key);
+		return 0;
+	}
+
+	inode = BPF_CORE_READ(file, f_inode);
+	p->mode = 0;
+	p->offset = 0;
+	p->size = BPF_CORE_READ(inode, i_size);
+	return emit_pending_event(&pending_fallocate, ret);
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan &mdash; tiga cabang di hook keluar</span>
+        <p>Hook masuk menyimpan <code>mode</code> (flag <code>fallocate</code>, mis. <code>FALLOC_FL_ZERO_RANGE = 0x10</code>) apa adanya. Hook keluar baru memutuskan bagaimana operasi ini diserialisasi, berdasarkan <code>p-&gt;mode</code>:</p>
+        <table>
+          <tr><th>p-&gt;mode</th><th>Hasil</th></tr>
+          <tr><td><code>FALLOC_FL_ZERO_RANGE</code>, atau kombinasi dengan <code>KEEP_SIZE</code>, atau <code>PUNCH_HOLE|KEEP_SIZE</code></td><td>Diubah jadi <code>op = SD_VFS_OP_ZERO_RANGE</code> &mdash; mencatat rentang byte yang jadi nol, bukan alokasi fisik</td></tr>
+          <tr><td>Selain nol dan bukan salah satu di atas</td><td>Dianggap operasi yang tidak didukung (<code>count_stat(20, 1)</code>, menaikkan <code>fallocate_unsupported</code>) &mdash; capture <strong>gagal</strong> untuk operasi ini, tidak ada event dikirim</td></tr>
+          <tr><td><code>0</code> (alokasi murni)</td><td>Dicatat sebagai <code>TRUNCATE</code> memakai ukuran akhir file (<code>inode-&gt;i_size</code>) &mdash; karena fallocate mode 0 bisa memperbesar file tanpa menulis byte atau lewat <code>do_truncate</code></td></tr>
+        </table>
+        <p><code>if (mode == FALLOC_FL_KEEP_SIZE) return 0;</code> di hook masuk — mode <code>KEEP_SIZE</code> murni (praalokasi ruang tanpa mengubah ukuran atau isi yang terlihat) tidak berefek apa pun yang perlu direplay, jadi langsung diabaikan sebelum draft dibuat sama sekali.</p>
+      </div>
+    </section>
+
+    <section id="s11" class="wide">
+      <h2><span class="num">11</span>RENAME — vfs_rename</h2>
+      <div class="hook-badge"><span class="dot"></span>fentry/vfs_rename</div>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 1128&ndash;1184 (dipendekkan)</div>
+        <pre><code>SEC("fentry/vfs_rename")
+int BPF_PROG(handle_vfs_rename, struct renamedata *rd)
+{
+	unsigned long long key = current_key();
+	struct statediff_vfs_pending *p = get_scratch(SD_VFS_OP_RENAME);
+
+	struct inode *old_dir = BPF_CORE_READ(rd, old_dir);
+	struct inode *new_dir = BPF_CORE_READ(rd, new_dir);
+	struct dentry *old_dentry = BPF_CORE_READ(rd, old_dentry);
+	struct dentry *new_dentry = BPF_CORE_READ(rd, new_dentry);
+
+	inode_to_key(old_dir, &p->parent);
+	inode_to_key(new_dir, &p->new_parent);
+
+	int old_tracked = dir_is_tracked(&p->parent);
+	if (!old_tracked) {
+		int new_tracked = dir_is_tracked(&p->new_parent);
+		if (!new_tracked) {
+			record_untracked_parent(SD_VFS_OP_RENAME, &p->new_parent);
+			return 0;
+		}
+	}
+
+	dentry_to_key(old_dentry, &p->object);
+	p->new_object = p->object;
+	p->is_dir = dentry_is_dir(old_dentry);
+	p->flags = BPF_CORE_READ(rd, flags);
+	read_dentry_name(old_dentry, p->name);
+	read_dentry_name(new_dentry, p->new_name);
+
+	bpf_map_update_elem(&pending_rename, &key, p, BPF_ANY);
+	return 0;
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan &mdash; kenapa dua parent?</span>
+        <p><code>struct renamedata *rd</code> membawa <strong>semua</strong> informasi rename dalam satu struct: direktori asal (<code>old_dir</code>), direktori tujuan (<code>new_dir</code>), entri asal (<code>old_dentry</code>), entri tujuan (<code>new_dentry</code>), dan <code>flags</code> (mis. <code>RENAME_NOREPLACE</code>, <code>RENAME_EXCHANGE</code>).</p>
+        <p>Baris <code>if (!old_tracked) { ...cek new_tracked...; if (!new_tracked) return 0; }</code> — <strong>rename direkam kalau salah satu saja</strong> dari parent asal atau parent tujuan sedang diawasi. Ini menangkap tiga kasus: rename di dalam tree yang diawasi, file dipindah <em>masuk</em> ke tree yang diawasi, dan file dipindah <em>keluar</em> darinya.</p>
+        <p><code>p->new_object = p->object;</code> — objek yang di-rename tetap inode yang sama (rename tidak membuat inode baru), jadi identitasnya disalin apa adanya ke <code>new_object</code>.</p>
+      </div>
+
+      <div class="hook-badge"><span class="dot"></span>fexit/vfs_rename</div>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 1186&ndash;1210</div>
+        <pre><code>SEC("fexit/vfs_rename")
+int BPF_PROG(handle_vfs_rename_ret, struct renamedata *rd, int ret)
+{
+	struct statediff_vfs_pending *p;
+	unsigned long long key = current_key();
+	unsigned char tracked = 1;
+
+	p = bpf_map_lookup_elem(&pending_rename, &key);
+	if (!p)
+		return 0;
+	if (ret >= 0 && p->is_dir) {
+		if (dir_is_tracked(&p->new_parent))
+			bpf_map_update_elem(&tracked_dirs, &p->object, &tracked,
+					    BPF_ANY);
+		else if (dir_is_tracked(&p->parent))
+			bpf_map_delete_elem(&tracked_dirs, &p->object);
+	}
+	return emit_pending_event(&pending_rename, ret);
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p>Kalau objek yang di-rename adalah direktori (<code>p->is_dir</code>) dan operasinya sukses: kalau parent <strong>tujuan</strong> diawasi &rarr; direktori itu (dan seluruh isinya) <strong>ditambahkan</strong> ke <code>tracked_dirs</code> (pindah masuk ke tree yang diawasi). Kalau bukan, tapi parent <strong>asal</strong> diawasi &rarr; direktori itu <strong>dihapus</strong> dari <code>tracked_dirs</code> (pindah keluar). Ini adalah mekanisme yang sama seperti mkdir/rmdir (Bagian 6.1 &amp; 6.2), diterapkan untuk kasus rename.</p>
+      </div>
+    </section>
+
+    <hr class="sep">
+
+    <section id="s12" class="wide">
+      <h2><span class="num">12</span>MMAP + WRITEBACK — Tulisan Tanpa Syscall Write</h2>
+      <p class="lede">Aplikasi bisa menulis ke file lewat <code>mmap()</code> dengan <code>PROT_WRITE|MAP_SHARED</code>, lalu menyimpan langsung ke memory yang dipetakan — tidak ada syscall <code>write()</code> yang terlibat sama sekali, jadi tidak ada hook VFS yang tertembak.</p>
+
+      <div class="hook-badge"><span class="dot"></span>fentry/security_mmap_file</div>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 1220&ndash;1271 (dipendekkan)</div>
+        <pre><code>SEC("fentry/security_mmap_file")
+int BPF_PROG(handle_security_mmap_file, struct file *file, unsigned long prot,
+	     unsigned long flags)
+{
+	unsigned long mtype = flags & MAP_TYPE;
+
+	if (!file || !(prot & PROT_WRITE))
+		return 0;
+	if (mtype != MAP_SHARED && mtype != MAP_SHARED_VALIDATE)
+		return 0;
+
+	struct statediff_vfs_pending *p = get_scratch(SD_VFS_OP_MMAP);
+	struct dentry *dentry = BPF_CORE_READ(file, f_path.dentry);
+	/* ... resolve parent, cek tracked ... */
+
+	struct inode *inode = BPF_CORE_READ(dentry, d_inode);
+	umode_t mode = BPF_CORE_READ(inode, i_mode);
+	if ((mode & S_IFMT) != S_IFREG)
+		return 0;
+
+	inode_to_key(inode, &p->object);
+	read_dentry_name(dentry, p->name);
+
+	unsigned char tracked = 1;
+	bpf_map_update_elem(&mmap_files, &p->object, &tracked, BPF_ANY);
+
+	struct statediff_vfs_event *e = reserve_empty_event();
+	fill_common(e, p, 0);
+	bpf_ringbuf_submit(e, 0);
+	return 0;
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p><code>security_mmap_file()</code> adalah titik LSM (<em>Linux Security Module</em>) yang dilewati <strong>setiap</strong> pemanggilan <code>mmap(2)</code>, apa pun filesystem-nya — dipilih sebagai hook karena letaknya di luar variasi implementasi VFS per-filesystem.</p>
+        <p><code>if (!file || !(prot &amp; PROT_WRITE)) return 0;</code> — hanya peduli mapping yang <strong>bisa ditulis</strong>. <code>if (mtype != MAP_SHARED &amp;&amp; mtype != MAP_SHARED_VALIDATE) return 0;</code> — hanya peduli mapping <strong>shared</strong> (perubahan pada memory langsung tercermin ke file); <code>MAP_PRIVATE</code> (copy-on-write) tidak pernah menulis balik ke file, jadi tidak relevan.</p>
+        <p><code>if ((mode &amp; S_IFMT) != S_IFREG) return 0;</code> — hanya file biasa (bukan direktori/device/dsb) yang bisa di-mmap dengan cara ini.</p>
+        <p><code>bpf_map_update_elem(&amp;mmap_files, &amp;p->object, &amp;tracked, BPF_ANY);</code> — mendaftarkan inode file ini ke map <code>mmap_files</code> (Bagian 1.1/3), supaya hook <code>writeback</code> di bawah tahu file ini perlu diawasi.</p>
+        <p>Event <code>MMAP</code> yang dikirim ke ring buffer <strong>bukan</strong> untuk dicatat sebagai perubahan data di file <code>.sd</code> — ini murni memberi tahu userspace pemetaan <code>inode &rarr; path</code>, karena hook <code>writeback</code> di bawah hanya mengenal inode, bukan nama file.</p>
+      </div>
+
+      <div class="hook-badge"><span class="dot"></span>fentry/__folio_start_writeback</div>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 1273&ndash;1333</div>
+        <pre><code>static __always_inline unsigned long long folio_size_bytes(struct folio *folio)
+{
+	unsigned long flags = BPF_CORE_READ(folio, flags);
+
+	if (flags & (1UL << PG_head)) {
+		unsigned int nr = BPF_CORE_READ(folio, _folio_nr_pages);
+		return (unsigned long long)nr << PAGE_SHIFT;
+	}
+	return 1ULL << PAGE_SHIFT;
+}
+
+SEC("fentry/__folio_start_writeback")
+int BPF_PROG(handle_folio_start_writeback, struct folio *folio, bool keep_write)
+{
+	struct address_space *mapping = BPF_CORE_READ(folio, mapping);
+	if (!mapping || ((unsigned long)mapping & PAGE_MAPPING_FLAGS))
+		return 0;
+
+	struct inode *host = BPF_CORE_READ(mapping, host);
+	struct statediff_vfs_inode_key key = {};
+	if (!inode_to_key(host, &key))
+		return 0;
+	if (!bpf_map_lookup_elem(&mmap_files, &key))
+		return 0;
+
+	struct statediff_vfs_pending *p = get_scratch(SD_VFS_OP_WRITEBACK);
+	p->object = key;
+	p->offset = (unsigned long long)BPF_CORE_READ(folio, index) << PAGE_SHIFT;
+	p->size = folio_size_bytes(folio);
+
+	struct statediff_vfs_event *e = reserve_empty_event();
+	fill_common(e, p, 0);
+	bpf_ringbuf_submit(e, 0);
+	return 0;
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p>Sebuah <em>folio</em> adalah satu (atau beberapa, untuk "large folio") halaman page-cache. Fungsi kernel <code>__folio_start_writeback</code> dipanggil <strong>setiap kali</strong> sebuah folio dirty (kotor, ada perubahan yang belum ditulis ke disk) mulai ditulis balik ke penyimpanan — ini titik pertemuan untuk <em>semua</em> jalur yang mengotori page cache, termasuk mmap store, bukan hanya write biasa.</p>
+        <p><code>mapping = BPF_CORE_READ(folio, mapping); if (!mapping || ((unsigned long)mapping &amp; PAGE_MAPPING_FLAGS)) return 0;</code> — beberapa bit rendah dari pointer <code>mapping</code> dipakai kernel sebagai flag penanda (mis. folio anonim, bukan milik file); baris ini menyaring folio yang bukan bagian dari sebuah file.</p>
+        <p><code>host = BPF_CORE_READ(mapping, host);</code> — inode pemilik page cache ini. <code>if (!bpf_map_lookup_elem(&amp;mmap_files, &amp;key)) return 0;</code> — <strong>hanya diproses lebih lanjut kalau inode ini ada di <code>mmap_files</code></strong>, yaitu file yang benar-benar sedang punya writable mmap aktif (didaftarkan oleh hook di atas). Ini yang membuat hook ini tidak "berisik" — mayoritas writeback di sistem sama sekali tidak menyentuh file yang diawasi lewat mmap.</p>
+        <p><code>p->offset = folio->index &lt;&lt; PAGE_SHIFT;</code> — <code>folio-&gt;index</code> adalah nomor halaman (bukan byte) di dalam file; digeser <code>PAGE_SHIFT</code> (12, artinya kali 4096) untuk mengubahnya jadi offset byte.</p>
+        <p>Event yang dikirim <strong>tidak membawa data byte sama sekali</strong> — hanya <code>{object (inode), offset, size}</code>. Komentar sumber (baris 1287&ndash;1295) menjelaskan userspace-lah yang nantinya memanggil <code>pread()</code> pada page cache di rentang ini untuk mengambil isi sebenarnya, pada saat capture (bukan saat writeback ini terjadi) — ditelusuri lebih lanjut di file <code>statediff_vfs.c</code>.</p>
+      </div>
+    </section>
+
+    <hr class="sep">
+
+    <section id="s13" class="wide">
+      <h2><span class="num">13</span>Native AIO / DIO — io_submit_one + aio_complete_rw</h2>
+      <p class="lede">Jalur paling rumit di file ini. InnoDB (MySQL) dan aplikasi libaio lain menulis lewat <code>io_submit(IOCB_CMD_PWRITE)</code>, jalur kernel yang sama sekali tidak menyentuh <code>vfs_write</code>/<code>vfs_writev</code>.</p>
+
+      <div class="callout">
+        <span class="label">Kenapa dua hook terpisah yang harus dipasangkan manual?</span>
+        <p>Titik hook yang "jelas" (<code>aio_write</code>) tidak bisa dipakai: fungsi ini di-inline compiler ke pemanggilnya, sehingga simbol keluarannya tidak pernah benar-benar dieksekusi sebagai fungsi berdiri sendiri (komentar sumber baris 1347&ndash;1352). Sebagai gantinya dipakai <code>io_submit_one</code> (submit, generik untuk semua filesystem) dan <code>aio_complete_rw</code> (completion). Keduanya dipasangkan lewat sebuah <strong>cookie</strong>: alamat <code>struct iocb</code> milik user, karena tidak ada pointer <code>kiocb</code> kernel yang tersedia di titik submit (dialokasikan belakangan) maupun <code>struct file*</code> yang tersedia di titik completion (hanya <code>kiocb</code>).</p>
+      </div>
+
+      <div class="hook-badge"><span class="dot"></span>fentry/io_submit_one</div>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 1540&ndash;1554</div>
+        <pre><code>SEC("fentry/io_submit_one")
+int BPF_PROG(handle_io_submit_one, struct kioctx *ioctx, struct iocb *user_iocb,
+	     bool compat)
+{
+	unsigned char one = 1;
+	unsigned long long cookie;
+
+	if (filtered_out() || !user_iocb || compat)
+		return 0;
+
+	cookie = (unsigned long long)user_iocb;
+	bpf_map_update_elem(&dio_inflight, &cookie, &one, BPF_ANY);
+	return 0;
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p><code>cookie = (unsigned long long)user_iocb;</code> — <strong>alamat pointer <code>user_iocb</code> itu sendiri dijadikan cookie</strong>, bukan isinya. Hook ini sengaja <em>tidak membaca isi</em> <code>user_iocb</code> — komentar sumber (baris 1533&ndash;1539) menjelaskan ini karena <code>bpf_probe_read_user()</code> tidak boleh gagal karena page fault, dan di titik masuk ini halaman memory milik <code>user_iocb</code> mungkin belum ter-fault-in.</p>
+        <p><code>bpf_map_update_elem(&amp;dio_inflight, &amp;cookie, &amp;one, BPF_ANY);</code> — mendaftarkan cookie ini sebagai "sedang berjalan", memakai pola set (Bagian 1.1) yang sama seperti <code>tracked_dirs</code>.</p>
+      </div>
+
+      <div class="hook-badge"><span class="dot"></span>fexit/io_submit_one</div>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 1565&ndash;1641 (dipendekkan)</div>
+        <pre><code>SEC("fexit/io_submit_one")
+int BPF_PROG(handle_io_submit_one_exit, struct kioctx *ioctx,
+	     struct iocb *user_iocb, bool compat, int ret)
+{
+	struct iocb ib;
+	unsigned long long cookie = (unsigned long long)user_iocb;
+	unsigned long long emitted = 0;
+
+	if (ret < 0) {
+		bpf_map_delete_elem(&dio_inflight, &cookie);
+		return 0;
+	}
+
+	bpf_probe_read_user(&ib, sizeof(ib), user_iocb);
+	if (ib.aio_lio_opcode != IOCB_CMD_PWRITE &&
+	    ib.aio_lio_opcode != IOCB_CMD_PWRITEV) {
+		bpf_map_delete_elem(&dio_inflight, &cookie);
+		return 0;
+	}
+
+	struct statediff_vfs_pending *p = get_scratch(SD_VFS_OP_DIO_SUBMIT);
+	p->offset = ib.aio_offset;
+
+	if (ib.aio_lio_opcode == IOCB_CMD_PWRITE) {
+		unsigned int got = dio_emit_one(p, cookie, ib.aio_offset,
+						(const void *)ib.aio_buf,
+						ib.aio_nbytes);
+		if ((unsigned long long)got != ib.aio_nbytes)
+			goto abort;
+		emitted = got;
+	} else {
+		struct dio_seg_ctx c = {
+			.p = p, .iov = (const struct iovec *)ib.aio_buf,
+			.cookie = cookie, .pos = ib.aio_offset,
+		};
+		unsigned int segs = (unsigned int)ib.aio_nbytes;
+		bpf_loop(segs, dio_emit_seg, &c, 0);
+		if (c.failed)
+			goto abort;
+		emitted = c.emitted;
+	}
+
+	dio_emit_control(SD_VFS_OP_DIO_SUBMIT_DONE, cookie, 0, emitted);
+	return 0;
+
+abort:
+	bpf_map_delete_elem(&dio_inflight, &cookie);
+	dio_emit_control(SD_VFS_OP_DIO_ABORT, cookie, -1, emitted);
+	return 0;
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p>Di titik <em>keluar</em> <code>io_submit_one</code>, kernel sudah selesai meng-<em>import</em> IOCB dan buffer user (memory-nya sudah pasti ter-fault-in), sehingga <code>bpf_probe_read_user(&amp;ib, sizeof(ib), user_iocb)</code> aman dipanggil di sini — kebalikan dari hook masuk.</p>
+        <p><code>ib.aio_lio_opcode</code> — kode operasi asli permintaan AIO. Hanya <code>IOCB_CMD_PWRITE</code> (tulis satu buffer) dan <code>IOCB_CMD_PWRITEV</code> (tulis banyak buffer/iovec) yang diproses; operasi baca diabaikan di titik ini juga (walau completion-nya baru benar-benar disaring di hook <code>aio_complete_rw</code>).</p>
+        <p>Cabang <code>IOCB_CMD_PWRITE</code> memanggil <code>dio_emit_one</code> (mirip <code>dio_emit_seg</code>/potongan <code>vfs_write</code>: salin isi buffer ke <code>event_scratch</code>, kirim event <code>DIO_SUBMIT</code>). Cabang <code>IOCB_CMD_PWRITEV</code> memakai <code>bpf_loop</code> dengan <code>dio_emit_seg</code> — pola yang sama persis seperti <code>writev_emit_seg</code> di Bagian 8.2, hanya dengan tipe event <code>DIO_SUBMIT</code>.</p>
+        <p>Kalau semua segmen berhasil dikirim &rarr; <code>dio_emit_control(SD_VFS_OP_DIO_SUBMIT_DONE, ...)</code> menandai "staging untuk cookie ini selesai". Kalau ada yang gagal di tengah jalan (<code>goto abort</code>) &rarr; <code>dio_emit_control(SD_VFS_OP_DIO_ABORT, ...)</code> memberi tahu userspace capture untuk operasi ini gagal, dan cookie dihapus dari <code>dio_inflight</code> supaya completion nanti tidak menunggu cookie yang sudah dibatalkan.</p>
+      </div>
+
+      <div class="hook-badge"><span class="dot"></span>fentry/aio_complete_rw</div>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 1651&ndash;1670</div>
+        <pre><code>SEC("fentry/aio_complete_rw")
+int BPF_PROG(handle_aio_complete_rw, struct kiocb *kiocb, long res)
+{
+	unsigned long long cookie;
+
+	if (!kiocb)
+		return 0;
+	cookie = BPF_CORE_READ((struct aio_kiocb *)kiocb, ki_res.obj);
+	if (!bpf_map_lookup_elem(&dio_inflight, &cookie))
+		return 0;
+	if (!(BPF_CORE_READ(kiocb, ki_flags) & IOCB_WRITE)) {
+		bpf_map_delete_elem(&dio_inflight, &cookie);
+		return 0;
+	}
+	bpf_map_delete_elem(&dio_inflight, &cookie);
+
+	dio_emit_complete(kiocb, cookie, res);
+	return 0;
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p><code>aio_prep_rw()</code> memasang <code>aio_complete_rw</code> sebagai fungsi <code>ki_complete</code> untuk <strong>semua</strong> operasi AIO, baca maupun tulis — hook ini terpasang di titik yang sama untuk keduanya, dan menyaring sendiri operasi tulis.</p>
+        <p><code>cookie = BPF_CORE_READ((struct aio_kiocb *)kiocb, ki_res.obj);</code> — kernel sendiri yang menyimpan alamat <code>user_iocb</code> asli (cookie kita) ke field ini saat submit, jadi di sisi completion cookie itu bisa ditarik balik dari struct kernel, tanpa perlu membaca memory user sama sekali.</p>
+        <p><code>if (!bpf_map_lookup_elem(&amp;dio_inflight, &amp;cookie)) return 0;</code> — kalau cookie ini tidak terdaftar (bukan operasi yang kita catat, atau sudah dihapus lewat abort), lewati.</p>
+        <p><code>if (!(BPF_CORE_READ(kiocb, ki_flags) &amp; IOCB_WRITE)) { ...; return 0; }</code> — <code>ki_flags</code> adalah field milik <strong>kernel</strong> (bukan IOCB user), jadi bisa dibaca aman di sini untuk membedakan baca vs tulis tanpa harus menyentuh memory user. Operasi baca dibuang di sini.</p>
+        <p><code>dio_emit_complete(kiocb, cookie, res)</code> (fungsi terpisah, baris 1497&ndash;1530) membaca <code>kiocb-&gt;ki_filp</code> untuk resolve path (masih valid di titik ini), lalu mengirim event <code>DIO_COMPLETE</code> berisi hasil (<code>res</code>) dan identitas file.</p>
+      </div>
+      <div class="callout">
+        <span class="label">Kenapa dibangun langsung di ring buffer, bukan lewat <code>scratch</code>?</span>
+        <p>Komentar sumber (baris 1492&ndash;1495): completion sebuah operasi <code>O_DIRECT</code> asinkron bisa terjadi di konteks <strong>softirq</strong> (interrupt), bukan konteks proses biasa. Memakai map <code>scratch</code> per-CPU yang sama dengan hook lain berisiko bentrok kalau sebuah hook konteks-proses sedang memakainya di CPU itu juga. <code>dio_emit_complete</code> karena itu hanya melakukan pembacaan kernel dan satu <code>bpf_map_lookup_elem</code> — semuanya aman dijalankan dari softirq — lalu menulis langsung ke slot ring buffer yang baru dipesan.</p>
+      </div>
+      <div class="example">
+        <span class="label">Ringkasan urutan event satu operasi DIO PWRITE</span>
+        <pre>io_submit(IOCB_CMD_PWRITE, iocb_addr=0x7f0012340000, ...)
+
+1. fentry/io_submit_one   -> dio_inflight[0x7f0012340000] = 1
+2. fexit/io_submit_one    -> DIO_SUBMIT (payload byte, cookie=0x7f0012340000)
+                           -> DIO_SUBMIT_DONE (cookie=0x7f0012340000)
+3. fentry/aio_complete_rw -> DIO_COMPLETE (cookie=0x7f0012340000, res=jumlah byte, path)
+                           -> dio_inflight[0x7f0012340000] dihapus
+
+Userspace memasangkan ketiga event ini lewat cookie yang sama,
+baru mengubahnya jadi satu record WRITE di batch .sd.</pre>
+      </div>
+    </section>
+
+    <hr class="sep">
+
+    <section id="s14">
+      <h2><span class="num">14</span>Statistik &amp; Deteksi Capture Loss</h2>
+      <div class="codeblock">
+        <div class="label">statediff_vfs.bpf.c &middot; baris 205&ndash;270 (inti, disingkat)</div>
+        <pre><code>static __always_inline void count_stat(unsigned int field,
+				       unsigned long long value)
+{
+	unsigned int key = 0;
+	struct statediff_vfs_stats *s = bpf_map_lookup_elem(&stats, &key);
+	if (!s)
+		return;
+
+	if (field == 0)
+		__sync_fetch_and_add(&s->create_enter, value);
+	else if (field == 1)
+		__sync_fetch_and_add(&s->mkdir_enter, value);
+	/* ... else-if berlanjut untuk setiap field statediff_vfs_stats ... */
+}</code></pre>
+      </div>
+      <div class="explain">
+        <span class="label">Penjelasan</span>
+        <p><code>stats</code> adalah map <code>ARRAY</code> dengan satu slot (Bagian 3), diakses dari <strong>banyak CPU sekaligus</strong> secara bersamaan (setiap thread di sistem yang melakukan operasi filesystem bisa memicu hook di CPU manapun). <code>__sync_fetch_and_add</code> adalah operasi <em>atomic</em> — penjumlahan yang dijamin tidak akan kehilangan update walau dua CPU menambah nilai yang sama secara bersamaan.</p>
+        <p>Polanya rangkaian <code>if/else if</code> per <code>field</code> (bukan pengindeksan array/pointer aritmatika ke field struct) karena verifier BPF perlu bisa memastikan setiap akses field struct itu valid secara statis saat program diperiksa — offset field harus diketahui di waktu kompilasi, bukan dihitung dari sebuah angka saat runtime.</p>
+      </div>
+      <p>Nomor <code>field</code> yang dipakai di seluruh file (referensi cepat, dari pemakaian <code>count_stat</code> di berbagai hook):</p>
+      <table>
+        <tr><th>field</th><th>Counter</th><th>field</th><th>Counter</th></tr>
+        <tr><td>0&ndash;6</td><td>*_enter per operasi (create, mkdir, write, truncate, unlink, rmdir, rename)</td><td>13</td><td>write_chunks_dropped</td></tr>
+        <tr><td>8</td><td>parent_untracked</td><td>14</td><td>probe_read_failures</td></tr>
+        <tr><td>9</td><td>name_read_fail</td><td>15&ndash;16</td><td>dio_submit_enter, dio_complete_enter</td></tr>
+        <tr><td>10</td><td>events_submitted</td><td>17&ndash;19</td><td>dio_iocb/iovec/payload_read_failures</td></tr>
+        <tr><td>11</td><td>ringbuf_drops</td><td>20</td><td>fallocate_unsupported</td></tr>
+        <tr><td>12</td><td>write_bytes_dropped</td><td>&mdash;</td><td>&mdash;</td></tr>
+      </table>
+      <div class="callout">
+        <span class="label">Fail-closed</span>
+        <p>Setiap kali data <strong>gagal</strong> tersalin atau tersimpan dengan sempurna, salah satu counter di atas naik — bukan diam-diam diabaikan. Program userspace (file berikutnya) memeriksa semua counter loss ini sebelum menulis batch <code>.sd</code>; kalau ada satu saja yang bukan nol, seluruh batch ditolak. Filosofinya: capture yang sebagian lebih berbahaya daripada capture yang gagal total, karena replay-nya akan terlihat berhasil padahal datanya salah.</p>
+      </div>
+    </section>
+
+    <hr class="sep">
+
+    <section id="s15" class="wide">
+      <h2><span class="num">15</span>Skenario End-to-End</h2>
+      <p class="lede">Menggabungkan semua bagian di atas: satu proses (PID 4210) menjalankan empat operasi berurutan pada tree yang diawasi di <code>/tracked</code>.</p>
+      <div class="flow">$ mkdir /tracked/dir/photos
+$ echo "hai" > /tracked/dir/photos/note.txt
+$ mv /tracked/dir/photos/note.txt /tracked/dir/photos/note2.txt
+$ rm /tracked/dir/photos/note2.txt</div>
+      <table>
+        <tr><th>#</th><th>Syscall</th><th>Hook aktif</th><th>Event ke rb</th><th>Efek di tracked_dirs</th></tr>
+        <tr><td>1</td><td>mkdir photos</td><td>fentry/fexit vfs_mkdir</td><td>MKDIR{parent:dir, object:photos, name:"photos"}</td><td>+{dev,ino(photos)}</td></tr>
+        <tr><td>2a</td><td>open(note.txt, O_CREAT)</td><td>fexit do_filp_open</td><td>CREATE{parent:photos, object:note.txt, name:"note.txt"}</td><td>&mdash;</td></tr>
+        <tr><td>2b</td><td>write("hai\n")</td><td>fentry/fexit vfs_write</td><td>WRITE{object:note.txt, offset:0, size:4, data:"hai\n"}</td><td>&mdash;</td></tr>
+        <tr><td>3</td><td>rename note.txt&rarr;note2.txt</td><td>fentry/fexit vfs_rename</td><td>RENAME{parent:photos, new_parent:photos, name:"note.txt", new_name:"note2.txt"}</td><td>&mdash; (objeknya bukan direktori)</td></tr>
+        <tr><td>4</td><td>unlink note2.txt</td><td>fentry/fexit vfs_unlink</td><td>UNLINK{parent:photos, object:note2.txt, name:"note2.txt"}</td><td>&mdash;</td></tr>
+      </table>
+      <p>Perhatikan urutan #2: karena <code>&gt;</code> di shell membuka file dengan <code>O_CREAT</code> lalu langsung menulis, <strong>dua</strong> hook berbeda tertembak dari satu baris perintah — <code>do_filp_open</code> (Bagian 7) untuk pembuatan filenya, <code>vfs_write</code> (Bagian 8.1) untuk isinya — menghasilkan dua event terpisah di ring buffer, berurutan.</p>
+      <p>Juga perhatikan #1: <code>photos</code> baru didaftarkan ke <code>tracked_dirs</code> tepat setelah <code>mkdir</code> selesai (Bagian 6.1) — itu sebabnya operasi #2, #3, #4 yang semuanya terjadi <em>di dalam</em> <code>photos/</code>, tetap terdeteksi walau <code>photos</code> baru saja dibuat dalam skenario yang sama.</p>
+    </section>
+
+    <hr class="sep">
+
+    <section id="s16" class="wide">
+      <h2><span class="num">16</span>Peta Penutup</h2>
+      <div class="flow">STRUCT INTI
+  statediff_vfs_inode_key  { dev, ino }              -- identitas objek
+  statediff_vfs_pending    { op, parent, object, ... } -- draft antara entry & exit
+  statediff_vfs_event      { ...pending + pid/uid/ret } -- event final ke userspace
+
+MAP INTI
+  tracked_dirs, mmap_files, dio_inflight  -- "daftar keanggotaan" (set)
+  pending_<op>                            -- draft per-operasi, key = pid_tgid
+  scratch, event_scratch                  -- ruang kerja sementara per-CPU
+  rb                                      -- satu-satunya keluaran ke userspace
+  stats                                   -- counter & sinyal capture loss
+
+POLA HOOK (semua hook adalah variasi dari salah satu pola ini)
+  A. save_child_op + emit_pending_event      -> mkdir, unlink, rmdir
+  B. entry manual + emit_pending_event       -> truncate, fallocate, rename, write
+  C. satu hook fexit saja, tanpa pending     -> create, mmap, writeback
+  D. entry/exit + bpf_loop untuk N segmen    -> writev, dio pwritev
+  E. cookie-based pairing lintas hook        -> native AIO (submit/done/complete/abort)
+
+ALUR SATU EVENT
+  syscall -> fungsi VFS kernel
+    -> [ENTRY] scoping (tracked_dirs) + simpan draft ke pending_<op>
+    -> fungsi VFS benar-benar jalan
+    -> [EXIT] ambil draft, cek ret, fill_common(), bpf_ringbuf_submit/output
+    -> map rb
+    -> (lanjut ke statediff_vfs.c)</div>
+      <p>Ini adalah peta lengkap untuk seluruh isi <code>statediff_vfs.bpf.c</code>. Langkah berikutnya yang wajar: <strong>statediff_vfs.c</strong> — program userspace yang membuka map ini lewat skeleton hasil <code>bpftool gen skeleton</code>, mem-polling <code>rb</code>, memasangkan event DIO/writeback yang saling terkait, dan akhirnya menulis semuanya sebagai file <code>.sd</code>.</p>
+    </section>
+
+    <p><a class="backtotop" href="#toc">&uarr; kembali ke navigasi</a></p>
+  </main>
+</div>
+
+<script>
+(function(){
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a[href^="#"]'));
+  var sections = links.map(function(a){ return document.querySelector(a.getAttribute('href')); }).filter(Boolean);
+  if (!('IntersectionObserver' in window) || !sections.length) return;
+  var map = new Map();
+  sections.forEach(function(sec, i){ map.set(sec, links[i]); });
+  var observer = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      var link = map.get(entry.target);
+      if (!link) return;
+      if (entry.isIntersecting) {
+        links.forEach(function(l){ l.classList.remove('active'); });
+        link.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-10% 0px -70% 0px', threshold: 0 });
+  sections.forEach(function(sec){ observer.observe(sec); });
+})();
+</script>
